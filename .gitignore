@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Individual env vars
+.env
+
+# Virtual environments
+.venv
+
+# Private data
+/data/*
+!/data/.keep
+/results/*
+!/results/.keep

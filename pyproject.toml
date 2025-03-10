@@ -1,0 +1,15 @@
+[project]
+name = "govuk-chat-evaluation-prototype"
+version = "0.1.0"
+description = "Evaluation tool for GOV.UK Chat"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[dependency-groups]
+dev = []
+
+# Pyright LSP pick up uv venv directory
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
