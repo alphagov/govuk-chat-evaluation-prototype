@@ -1,0 +1,28 @@
+[project]
+name = "govuk-chat-evaluation-prototype-2"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pandas>=2.2.3",
+    "pydantic>=2.10.6",
+    "scikit-learn>=1.6.1",
+    "tqdm>=4.67.1",
+]
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.396",
+  "pytest>=8.3.5",
+  "pytest-mock>=3.14.0",
+  "ruff>=0.9.9",
+]
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+
+# Pyright LSP pick up uv venv directory
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
