@@ -5,6 +5,7 @@ import numpy as np
 import os
 import pandas as pd
 import textwrap
+import sys
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -74,7 +75,7 @@ class Result:
         return precision_score(
             self._actual_list,
             self._predicted_list,
-            zero_division=np.nan,  # type: ignore
+            zero_division=np.nan,
         )
 
     @cached_property
