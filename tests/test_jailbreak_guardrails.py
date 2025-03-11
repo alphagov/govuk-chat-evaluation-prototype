@@ -97,3 +97,30 @@ def test_main_outputs_results(responses, expected_output, mocker, capsys):
     main()
     captured = capsys.readouterr()
     assert captured.out == expected_output
+
+
+def test_main_raises_subprocess_error(mocker):
+    mock_csv_data = pd.DataFrame(
+        {"question": ["A question"], "expected_outcome": [True]}
+    )
+
+    mocker.patch("pandas.read_csv", return_value=mock_csv_data)
+
+    subprocess_mock = AsyncMock()
+
+    subprocess_mock.communicate.return_value = (
+        b"",  # stdout
+        b"Error in subprocess",  # stderr
+    )
+    subprocess_mock.returncode = 1
+
+    mocker.patch(
+        "asyncio.create_subprocess_exec",
+        return_value=subprocess_mock,
+    )
+
+    with pytest.raises(Exception) as exception_info:
+        main()
+
+    assert exception_info.value.args[0] == "Failed to generate a jailbreak response"
+    assert exception_info.value.args[1] == "Error in subprocess"
