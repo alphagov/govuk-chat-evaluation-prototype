@@ -11,3 +11,5 @@ wheels/
 
 /data/*
 !/data/.keep
+/results/*
+!/results/.keep

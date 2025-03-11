@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "pandas>=2.2.3",
     "pydantic>=2.10.6",
+    "questionary>=2.1.0",
     "scikit-learn>=1.6.1",
     "tqdm>=4.67.1",
 ]
@@ -18,9 +19,6 @@ dev = [
   "pytest-mock>=3.14.0",
   "ruff>=0.9.9",
 ]
-
-[tool.pytest.ini_options]
-pythonpath = "src"
 
 # Pyright LSP pick up uv venv directory
 [tool.pyright]
