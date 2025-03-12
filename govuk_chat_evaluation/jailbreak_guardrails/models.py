@@ -3,6 +3,14 @@ from pydantic import BaseModel
 from typing import List
 from functools import cached_property
 from sklearn.metrics import precision_score, recall_score
+from typing import Optional
+
+
+class Config(BaseModel):
+    what: str
+    generate: bool
+    provider: Optional[str] = None
+    input_path: str
 
 
 class GenerateInput(BaseModel):

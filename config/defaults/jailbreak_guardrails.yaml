@@ -1,0 +1,4 @@
+what: Evaluating jailbreak guardrails
+generate: true
+provider: openai
+input_path: results/jailbreak_guardrails/2025-03-12T14:30:23/generated.jsonl

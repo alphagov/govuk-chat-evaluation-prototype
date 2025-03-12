@@ -17,5 +17,9 @@ wheels/
 /results/*
 !/results/.keep
 
+# Config 
+/config/*
+!/config/defaults
+
 # Deepeval
 .deepeval*
