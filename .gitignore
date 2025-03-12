@@ -6,10 +6,16 @@ dist/
 wheels/
 *.egg-info
 
+.env
+
 # Virtual environments
 .venv
 
+# Private data
 /data/*
 !/data/.keep
 /results/*
 !/results/.keep
+
+# Deepeval
+.deepeval*
