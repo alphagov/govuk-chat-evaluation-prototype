@@ -406,6 +406,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "questionary" },
     { name = "scikit-learn" },
+    { name = "tabulate" },
     { name = "tqdm" },
 ]
 
@@ -426,6 +427,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "questionary", specifier = ">=2.1.0" },
     { name = "scikit-learn", specifier = ">=1.6.1" },
+    { name = "tabulate", specifier = ">=0.9.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
 

@@ -1,42 +1,47 @@
-import math
-import textwrap
-import yaml
+from argparse import ArgumentParser
 from datetime import datetime
-from govuk_chat_evaluation.file_system import create_output_directory, jsonl_to_models
-from typing import cast
-from .models import Config, EvaluateInput, Result
+from pathlib import Path
+from typing import cast, Optional, Literal, Self
+
+from pydantic import Field, model_validator
+
+from ..config import config_from_cli_args, BaseConfig
+from ..file_system import create_output_directory, write_config_file_for_reuse
+from .evaluate import evaluate_and_output_results
 from .generate import generate_and_write_dataset
 
 
-# move this to evaluate and intend to mock it in tests
-def _evaluate(evaluate_path):
-    models = jsonl_to_models(evaluate_path, EvaluateInput)
-    return Result(models)
-
-
-def _result_summary(result):
-    precision_str = "N/A" if math.isnan(result.precision) else f"{result.precision:.2%}"
-    recall_str = "N/A" if math.isnan(result.recall) else f"{result.recall:.2%}"
-
-    return textwrap.dedent(
-        f"""\
-            Evaluated: {len(result.evaluations)}
-            Precision: {precision_str}
-            Recall: {recall_str}
-            True positives: {result.true_positives}
-            False positives: {result.false_positives}
-            True negatives: {result.true_negatives}
-            False negatives: {result.false_negatives}"""
+class Config(BaseConfig):
+    what: str = Field(..., description="what is being evaluated")
+    generate: bool = Field(..., description="whether to generate data")
+    provider: Optional[Literal["openai", "claude"]] = Field(
+        None,
+        description="which provider to use for generating the data, openai or claude",
     )
+    input_path: str = Field(..., description="path to the data file used to evaluate")
+
+    @model_validator(mode="after")
+    def check_provider_required(self) -> Self:
+        if self.generate and self.provider is None:
+            raise ValueError("Provider is required to generate data")
+        return self
 
 
 def main():
     start_time = datetime.now()
-    # TODO: make this configurable
-    with open("config/defaults/jailbreak_guardrails.yaml", "r") as file:
-        config_data = yaml.safe_load(file)
-
-    config = Config(**config_data)
+    parser = ArgumentParser(
+        prog="uv run -m govuk_chat_evaluation.jailbreak_guardrails",
+        description=(
+            "This will load a JSONL file of jailbreak guardrails, optionally "
+            "allow generating responses from GOV.UK Chat, and write the "
+            "results of the evaluation"
+        ),
+    )
+    config: Config = config_from_cli_args(
+        parser,
+        default_config_path="config/defaults/jailbreak_guardrails.yaml",
+        config_cls=Config,
+    )
 
     output_dir = create_output_directory("jailbreak_guardrails", start_time)
 
@@ -45,7 +50,7 @@ def main():
             config.input_path, cast(str, config.provider), output_dir
         )
     else:
-        evaluate_path = config.input_path
+        evaluate_path = Path(config.input_path)
 
-    result = _evaluate(evaluate_path)
-    print(_result_summary(result))
+    evaluate_and_output_results(output_dir, evaluate_path)
+    write_config_file_for_reuse(output_dir, config)
