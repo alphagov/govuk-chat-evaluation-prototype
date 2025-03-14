@@ -5,15 +5,18 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "deepeval>=2.5.3",
+    "click>=8.1.8",
     "dotenv>=0.9.9",
     "pandas>=2.2.3",
     "pydantic>=2.10.6",
-    "questionary>=2.1.0",
+    "pyyaml>=6.0.2",
     "scikit-learn>=1.6.1",
     "tabulate>=0.9.0",
     "tqdm>=4.67.1",
 ]
+
+[project.scripts]
+govuk_chat_evaluation = "govuk_chat_evaluation.cli:main"
 
 [dependency-groups]
 dev = [
@@ -28,3 +31,6 @@ dev = [
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+
+[tool.setuptools]
+packages = ["govuk_chat_evaluation"]

@@ -99,6 +99,7 @@ class AggregateResults:
 
 
 def evaluate_and_output_results(output_dir: Path, evalaution_data_path: Path):
+    print("\nEvaluation complete")
     models = jsonl_to_models(evalaution_data_path, EvaluationResult)
     write_csv_results(output_dir, [model.for_csv() for model in models])
 
@@ -110,6 +111,6 @@ def evaluate_and_output_results(output_dir: Path, evalaution_data_path: Path):
         filename="aggregate.csv",
         data_label="aggregates",
     )
-    print("\nEvaluation complete")
     table = [[k, v] for k, v in aggregate_results.to_dict().items()]
+    print("\nAggregate Results")
     print(tabulate(table) + "\n")

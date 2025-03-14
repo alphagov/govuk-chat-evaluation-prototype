@@ -1,11 +1,12 @@
 from argparse import ArgumentParser
 from datetime import datetime
 from pathlib import Path
-from typing import cast, Optional, Literal, Self
+from typing import cast, Optional, Literal, Self, List
 
+import click
 from pydantic import Field, model_validator
 
-from ..config import config_from_cli_args, BaseConfig
+from ..config import BaseConfig, config_from_cli_args, apply_click_options_to_command
 from ..file_system import create_output_directory, write_config_file_for_reuse
 from .evaluate import evaluate_and_output_results
 from .generate import generate_and_write_dataset
@@ -27,20 +28,21 @@ class Config(BaseConfig):
         return self
 
 
-def main():
+@click.command(name="jailbreak_guardrails")
+@click.argument(
+    "config_path",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default="config/defaults/jailbreak_guardrails.yaml",
+)
+@apply_click_options_to_command(Config)
+def main(**cli_args):
+    """Run jailbreak guardrails evaluation"""
     start_time = datetime.now()
-    parser = ArgumentParser(
-        prog="uv run -m govuk_chat_evaluation.jailbreak_guardrails",
-        description=(
-            "This will load a JSONL file of jailbreak guardrails, optionally "
-            "allow generating responses from GOV.UK Chat, and write the "
-            "results of the evaluation"
-        ),
-    )
+
     config: Config = config_from_cli_args(
-        parser,
-        default_config_path="config/defaults/jailbreak_guardrails.yaml",
+        config_path=cli_args["config_path"],
         config_cls=Config,
+        cli_args=cli_args,
     )
 
     output_dir = create_output_directory("jailbreak_guardrails", start_time)

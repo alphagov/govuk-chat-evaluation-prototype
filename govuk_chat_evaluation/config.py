@@ -1,7 +1,8 @@
-from argparse import ArgumentParser, BooleanOptionalAction
 from inspect import isclass
-from typing import get_origin, get_args, Optional, Type, TypeVar
+from pathlib import Path
+from typing import get_origin, get_args, Optional, Type, TypeVar, Any, Dict
 
+import click
 import yaml
 from pydantic import BaseModel
 
@@ -10,7 +11,7 @@ GenericConfig = TypeVar("GenericConfig", bound="BaseConfig")
 
 class BaseConfig(BaseModel):
     @classmethod
-    def apply_cli_args(cls, parser: ArgumentParser):
+    def apply_click_options(cls, command):
         for field_name, field_info in cls.model_fields.items():
             description = field_info.description
 
@@ -20,33 +21,33 @@ class BaseConfig(BaseModel):
                 field_type = get_args(field_type)[0]
 
             if field_type is bool:
-                parser.add_argument(
-                    f"--{field_name}", help=description, action=BooleanOptionalAction
-                )
+                command = click.option(
+                    f"--{field_name}/--no-{field_name}", help=description
+                )(command)
             elif (
                 # Try avoid complex types such as lists and nested objects
                 get_origin(field_type) not in {list, dict}
                 and not (isclass(field_type) and issubclass(field_type, BaseModel))
             ):
-                parser.add_argument(f"--{field_name}", help=description)
+                command = click.option(f"--{field_name}", help=description)(command)
+
+        return command
+
+
+def apply_click_options_to_command(config_cls: Type[GenericConfig]):
+    def decorator(command):
+        return config_cls.apply_click_options(command)
+
+    return decorator
 
 
 def config_from_cli_args(
-    parser: ArgumentParser, default_config_path: str, config_cls: Type[GenericConfig]
+    config_path: Path, config_cls: Type[GenericConfig], cli_args: Dict[str, Any]
 ) -> GenericConfig:
-    parser.add_argument(
-        "--config_file",
-        default=default_config_path,
-        help="The config file to use for this evaluation",
-    )
-    config_cls.apply_cli_args(parser)
+    filtered_args = {}
+    filtered_args = {k: v for k, v in cli_args.items() if v is not None}
 
-    args = vars(parser.parse_args())
-    filtered_args = {k: v for k, v in args.items() if v is not None}
-
-    config_file_path = filtered_args["config_file"]
-
-    with open(config_file_path, "r") as file:
+    with open(config_path, "r") as file:
         config_data = yaml.safe_load(file)
 
     return config_cls(**(config_data | filtered_args))
