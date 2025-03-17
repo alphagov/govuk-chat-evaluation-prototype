@@ -8,12 +8,14 @@ dependencies = [
     "click>=8.1.8",
     "pydantic>=2.10.6",
     "pyyaml>=6.0.2",
+    "tqdm>=4.67.1",
 ]
 
 [dependency-groups]
 dev = [
     "pyright>=1.1.396",
     "pytest>=8.3.5",
+    "pytest-asyncio>=0.25.3",
     "pytest-mock>=3.14.0",
     "ruff>=0.11.0",
 ]
@@ -28,3 +30,6 @@ venv = ".venv"
 
 [tool.setuptools]
 packages = ["govuk_chat_evaluation"]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
