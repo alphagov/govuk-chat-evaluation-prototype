@@ -1,1 +1,2 @@
 what: Evaluating jailbreak guardrails
+input_path: data/jailbreak_guardrails.jsonl

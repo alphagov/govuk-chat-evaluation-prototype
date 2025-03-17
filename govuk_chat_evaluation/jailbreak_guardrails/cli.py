@@ -6,10 +6,12 @@ from pydantic import Field
 
 from ..config import BaseConfig, config_from_cli_args, apply_click_options_to_command
 from ..file_system import create_output_directory, write_config_file_for_reuse
+from .evaluate import evaluate_and_output_results
 
 
 class Config(BaseConfig):
     what: str = Field(..., description="what is being evaluated")
+    input_path: str = Field(..., description="path to the data file used to evaluate")
 
 
 @click.command(name="jailbreak_guardrails")
@@ -33,6 +35,8 @@ def main(**cli_args):
 
     # TODO: generate data
 
-    # TODO: evaluate data
+    evaluate_path = Path(config.input_path)
+
+    evaluate_and_output_results(output_dir, evaluate_path)
 
     write_config_file_for_reuse(output_dir, config)
