@@ -17,3 +17,7 @@ wheels/
 !/data/.keep
 /results/*
 !/results/.keep
+
+# configs
+/config/*
+!/config/defaults
