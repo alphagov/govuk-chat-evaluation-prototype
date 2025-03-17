@@ -19,6 +19,12 @@ Run `uv pip install -e .` to install the executable.
 
 Run `uv run govuk_chat_evaluation` to run an evaluation.
 
+### Development tasks
+
+Run `uv run ruff format` to format the code.  
+Run `uv run ruff check .` to lint code base.  
+Run `uv run pyright` to validate the type hints.
+
 ## Licence
 
 [MIT License](LICENCE)
