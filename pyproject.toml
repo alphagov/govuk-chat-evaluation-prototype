@@ -4,12 +4,20 @@ version = "0.1.0"
 description = "Evaluation tool for GOV.UK Chat"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "click>=8.1.8",
+]
 
 [dependency-groups]
 dev = []
+
+[project.scripts]
+govuk_chat_evaluation = "govuk_chat_evaluation.cli:main"
 
 # Pyright LSP pick up uv venv directory
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+
+[tool.setuptools]
+packages = ["govuk_chat_evaluation"]

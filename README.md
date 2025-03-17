@@ -8,7 +8,16 @@ TBC
 
 ## Technical documentation
 
-TBC
+Install [uv](https://docs.astral.sh/uv/) to get started.
+
+### Dependencies
+
+Run `uv sync` to install dependencies.  
+Run `uv pip install -e .` to install the executable.
+
+### Usage
+
+Run `uv run govuk_chat_evaluation` to run an evaluation.
 
 ## Licence
 
