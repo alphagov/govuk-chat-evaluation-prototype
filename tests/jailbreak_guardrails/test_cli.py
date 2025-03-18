@@ -1,24 +1,43 @@
-import json
-
 import pytest
 import yaml
 from click.testing import CliRunner
 
-from govuk_chat_evaluation.jailbreak_guardrails.cli import main
+from govuk_chat_evaluation.jailbreak_guardrails.cli import main, Config
+from govuk_chat_evaluation.jailbreak_guardrails.evaluate import EvaluationResult
+
+
+class TestConfig:
+    def test_config_requires_provider_for_generate(self, mock_input_data):
+        with pytest.raises(ValueError, match="Provider is required to generate data"):
+            Config(
+                what="Test",
+                generate=True,
+                provider=None,
+                input_path=mock_input_data,
+            )
+
+        Config(
+            what="Test",
+            generate=False,
+            provider=None,
+            input_path=mock_input_data,
+        )
+
+        Config(
+            what="Test",
+            generate=True,
+            provider="openai",
+            input_path=mock_input_data,
+        )
 
 
 @pytest.fixture(autouse=True)
-def freeze_time_for_all_tests(freezer):
-    """Automatically freeze time for all tests in this file."""
-    freezer.move_to("2024-11-11 12:34:56")
-
-
-@pytest.fixture(autouse=True)
-def mock_config_file(tmp_path):
+def mock_config_file(tmp_path, mock_input_data):
     """Write a config file as an input for testing"""
     data = {
         "what": "Testing Jailbreak Guardrail evaluations",
-        "input_path": str(tmp_path / "input_data.jsonl"),
+        "generate": False,
+        "input_path": str(mock_input_data),
     }
     file_path = tmp_path / "config.yaml"
     with open(file_path, "w") as file:
@@ -28,16 +47,26 @@ def mock_config_file(tmp_path):
 
 
 @pytest.fixture(autouse=True)
-def input_data(tmp_path):
-    data = [
-        {"question": "Question 1", "expected_outcome": True, "actual_outcome": True},
-        {"question": "Question 2", "expected_outcome": False, "actual_outcome": True},
+def freeze_time_for_all_tests(freezer):
+    """Automatically freeze time for all tests in this file."""
+    freezer.move_to("2024-11-11 12:34:56")
+
+
+@pytest.fixture
+def mock_data_generation(mocker):
+    return_value = [
+        EvaluationResult(
+            question="Question", expected_outcome=True, actual_outcome=True
+        ),
+        EvaluationResult(
+            question="Question", expected_outcome=False, actual_outcome=False
+        ),
     ]
 
-    with open(tmp_path / "input_data.jsonl", "w") as file:
-        for item in data:
-            json.dump(item, file)
-            file.write("\n")
+    return mocker.patch(
+        "govuk_chat_evaluation.jailbreak_guardrails.generate.generate_inputs_to_evaluation_results",
+        return_value=return_value,
+    )
 
 
 @pytest.fixture
@@ -60,3 +89,27 @@ def test_main_creates_output_files(mock_output_directory, mock_config_file):
     assert results_file.exists()
     assert aggregate_file.exists()
     assert config_file.exists()
+
+
+def test_main_generates_results(
+    mock_output_directory, mock_config_file, mock_data_generation
+):
+    runner = CliRunner()
+    result = runner.invoke(
+        main, [mock_config_file, "--generate", "--provider", "claude"]
+    )
+
+    generated_file = mock_output_directory / "generated.jsonl"
+
+    assert result.exit_code == 0, result.output
+    mock_data_generation.assert_called_once()
+    assert generated_file.exists()
+
+
+@pytest.mark.usefixtures("mock_output_directory")
+def test_main_doesnt_generate_results(mock_config_file, mock_data_generation):
+    runner = CliRunner()
+    result = runner.invoke(main, [mock_config_file, "--no-generate"])
+
+    assert result.exit_code == 0, result.output
+    mock_data_generation.assert_not_called()
