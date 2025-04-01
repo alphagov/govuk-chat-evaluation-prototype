@@ -22,7 +22,7 @@ class BaseConfig(BaseModel):
 
             if field_type is bool:
                 command = click.option(
-                    f"--{field_name}/--no-{field_name}", help=description
+                    f"--{field_name}/--no-{field_name}", help=description, default=None
                 )(command)
             elif (
                 # Try avoid complex types such as lists and nested objects
