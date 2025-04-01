@@ -58,6 +58,7 @@ class TestBaseConfig:
 
         assert flag_option.opts == ["--flag"]
         assert flag_option.is_flag
+        assert flag_option.default is None
 
     def test_apply_click_options_uses_description_as_help(self):
         command = click.Command(name="Demo command")
