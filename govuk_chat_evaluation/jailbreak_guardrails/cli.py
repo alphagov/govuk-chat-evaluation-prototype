@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Optional, Literal, Self, cast
 
 import click
-from pydantic import Field, model_validator
+from pydantic import Field, FilePath, model_validator
 
 from ..config import BaseConfig, config_from_cli_args, apply_click_options_to_command
 from ..file_system import create_output_directory, write_config_file_for_reuse
@@ -18,7 +18,9 @@ class Config(BaseConfig):
         None,
         description="which provider to use for generating the data, openai or claude",
     )
-    input_path: str = Field(..., description="path to the data file used to evaluate")
+    input_path: FilePath = Field(
+        ..., description="path to the data file used to evaluate"
+    )
 
     @model_validator(mode="after")
     def check_provider_required(self) -> Self:
@@ -51,7 +53,7 @@ def main(**cli_args):
             config.input_path, cast(str, config.provider), output_dir
         )
     else:
-        evaluate_path = Path(config.input_path)
+        evaluate_path = config.input_path
 
     evaluate_and_output_results(output_dir, evaluate_path)
 
