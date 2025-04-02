@@ -1,3 +1,5 @@
+import json
+
 import pytest
 import yaml
 from click.testing import CliRunner
@@ -5,11 +7,29 @@ from click.testing import CliRunner
 from govuk_chat_evaluation.rag_answers.cli import main
 
 
+@pytest.fixture
+def mock_input_data(mock_project_root):
+    data = [
+        {"question": "Question 1", "llm_answer": "Hi", "ideal_answer": "Hello"},
+        {"question": "Question 2", "llm_answer": "Bye", "ideal_answer": "Bye"},
+    ]
+
+    path = mock_project_root / "input_data.jsonl"
+
+    with open(path, "w") as file:
+        for item in data:
+            json.dump(item, file)
+            file.write("\n")
+
+    return str(path)
+
+
 @pytest.fixture(autouse=True)
-def mock_config_file(tmp_path):
+def mock_config_file(tmp_path, mock_input_data):
     """Write a config file as an input for testing"""
     data = {
         "what": "Testing RAG Answer evaluations",
+        "input_path": str(mock_input_data),
     }
     file_path = tmp_path / "config.yaml"
     with open(file_path, "w") as file:

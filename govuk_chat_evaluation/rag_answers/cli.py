@@ -2,14 +2,18 @@ from datetime import datetime
 from pathlib import Path
 
 import click
-from pydantic import Field
+from pydantic import Field, FilePath
 
 from ..config import BaseConfig, apply_click_options_to_command, config_from_cli_args
 from ..file_system import create_output_directory, write_config_file_for_reuse
+from .evaluate import evaluate_and_output_results
 
 
 class Config(BaseConfig):
     what: str = Field(..., description="what is being evaluated")
+    input_path: FilePath = Field(
+        ..., description="path to the data file used to evaluate"
+    )
 
 
 @click.command(name="rag_answers")
@@ -30,5 +34,7 @@ def main(**cli_args):
     )
 
     output_dir = create_output_directory("rag_answers", start_time)
+
+    evaluate_and_output_results(output_dir, config.input_path)
 
     write_config_file_for_reuse(output_dir, config)
