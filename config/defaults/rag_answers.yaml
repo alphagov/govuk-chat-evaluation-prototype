@@ -1,1 +1,4 @@
 what: Evaluating RAG answers
+generate: true
+provider: claude
+input_path: data/rag_answers.jsonl
