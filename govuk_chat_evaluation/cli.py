@@ -1,7 +1,10 @@
 import click
+from dotenv import load_dotenv
 
 from . import jailbreak_guardrails
 from . import rag_answers
+
+load_dotenv()
 
 
 @click.group()
