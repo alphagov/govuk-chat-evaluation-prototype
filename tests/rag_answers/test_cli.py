@@ -1,4 +1,5 @@
 import json
+import os
 
 import pytest
 import yaml
@@ -42,6 +43,16 @@ def mock_config_file(tmp_path, mock_input_data):
 def freeze_time_for_all_tests(freezer):
     """Automatically freeze time for all tests in this file."""
     freezer.move_to("2024-11-11 12:34:56")
+
+
+@pytest.fixture(autouse=True)
+def mock_deepeval_evaluate(mocker):
+    mocker.patch.dict(os.environ, {"OPENAI_API_KEY": "mock"})
+
+    mocker.patch(
+        "govuk_chat_evaluation.rag_answers.evaluate.deepeval_evaluate",
+        return_value=None,
+    )
 
 
 @pytest.fixture
