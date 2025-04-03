@@ -1,9 +1,12 @@
 import click
+from dotenv import load_dotenv
 
 from . import jailbreak_guardrails
 from . import output_guardrails
 from . import question_router
 from . import rag_answers
+
+load_dotenv()
 
 
 @click.group()
