@@ -5,7 +5,32 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
-from govuk_chat_evaluation.rag_answers.cli import main
+from govuk_chat_evaluation.rag_answers.cli import main, Config
+
+
+class TestConfig:
+    def test_config_requires_provider_for_generate(self, mock_input_data):
+        with pytest.raises(ValueError, match="provider is required to generate data"):
+            Config(
+                what="Test",
+                generate=True,
+                provider=None,
+                input_path=mock_input_data,
+            )
+
+        Config(
+            what="Test",
+            generate=False,
+            provider=None,
+            input_path=mock_input_data,
+        )
+
+        Config(
+            what="Test",
+            generate=True,
+            provider="openai",
+            input_path=mock_input_data,
+        )
 
 
 @pytest.fixture
@@ -30,6 +55,7 @@ def mock_config_file(tmp_path, mock_input_data):
     """Write a config file as an input for testing"""
     data = {
         "what": "Testing RAG Answer evaluations",
+        "generate": False,
         "input_path": str(mock_input_data),
     }
     file_path = tmp_path / "config.yaml"
