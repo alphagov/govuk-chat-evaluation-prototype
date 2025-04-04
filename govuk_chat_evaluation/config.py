@@ -1,15 +1,41 @@
 from inspect import isclass
 from pathlib import Path
-from typing import get_origin, get_args, Optional, Type, TypeVar, Any, Self
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    Optional,
+    Self,
+    Type,
+    TypeVar,
+    get_args,
+    get_origin,
+)
 
 import click
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, FilePath
 
 GenericConfig = TypeVar("GenericConfig", bound="BaseConfig")
 
 
 class BaseConfig(BaseModel):
+    class GenericFields:
+        """Commonly used fields across Configs"""
+
+        what = Annotated[str, Field(..., description="What is being evaluated")]
+        generate = Annotated[bool, Field(..., description="Whether to generate data")]
+        provider_openai_or_claude = Annotated[
+            Optional[Literal["openai", "claude"]],
+            Field(
+                None,
+                description="Which provider to use for generating the data, openai or claude",
+            ),
+        ]
+        input_path = Annotated[
+            FilePath, Field(..., description="Path to the data file used to evaluate")
+        ]
+
     def _validate_fields_required_for_generate(self, *fields) -> Self:
         if getattr(self, "generate", False):
             for field in fields:

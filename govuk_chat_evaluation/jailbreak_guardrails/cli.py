@@ -1,9 +1,9 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Literal, Self, cast
+from typing import Self, cast
 
 import click
-from pydantic import Field, FilePath, model_validator
+from pydantic import model_validator
 
 from ..config import BaseConfig, config_from_cli_args, apply_click_options_to_command
 from ..file_system import create_output_directory, write_config_file_for_reuse
@@ -12,15 +12,10 @@ from .generate import generate_and_write_dataset
 
 
 class Config(BaseConfig):
-    what: str = Field(..., description="what is being evaluated")
-    generate: bool = Field(..., description="whether to generate data")
-    provider: Optional[Literal["openai", "claude"]] = Field(
-        None,
-        description="which provider to use for generating the data, openai or claude",
-    )
-    input_path: FilePath = Field(
-        ..., description="path to the data file used to evaluate"
-    )
+    what: BaseConfig.GenericFields.what
+    generate: BaseConfig.GenericFields.generate
+    provider: BaseConfig.GenericFields.provider_openai_or_claude
+    input_path: BaseConfig.GenericFields.input_path
 
     @model_validator(mode="after")
     def run_validatons(self) -> Self:
