@@ -1,2 +1,4 @@
 what: Evaluating RAG answers
+generate: false
+provider: openai
 input_path: data/rag_answers.jsonl
