@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 
 import click
-from pydantic import Field, FilePath
+from pydantic import model_validator
 
 from ..config import BaseConfig, apply_click_options_to_command, config_from_cli_args
 from ..file_system import create_output_directory, write_config_file_for_reuse
@@ -10,10 +10,14 @@ from .evaluate import evaluate_and_output_results
 
 
 class Config(BaseConfig):
-    what: str = Field(..., description="what is being evaluated")
-    input_path: FilePath = Field(
-        ..., description="path to the data file used to evaluate"
-    )
+    what: BaseConfig.GenericFields.what
+    generate: BaseConfig.GenericFields.generate
+    provider: BaseConfig.GenericFields.provider_openai_or_claude
+    input_path: BaseConfig.GenericFields.input_path
+
+    @model_validator(mode="after")
+    def run_validatons(self):
+        return self._validate_fields_required_for_generate("provider")
 
 
 @click.command(name="rag_answers")
