@@ -1,6 +1,6 @@
 from inspect import isclass
 from pathlib import Path
-from typing import get_origin, get_args, Optional, Type, TypeVar, Any
+from typing import get_origin, get_args, Optional, Type, TypeVar, Any, Self
 
 import click
 import yaml
@@ -10,6 +10,14 @@ GenericConfig = TypeVar("GenericConfig", bound="BaseConfig")
 
 
 class BaseConfig(BaseModel):
+    def _validate_fields_required_for_generate(self, *fields) -> Self:
+        if getattr(self, "generate", False):
+            for field in fields:
+                if hasattr(self, field) and getattr(self, field, None) is None:
+                    raise ValueError(f"{field} is required to generate data")
+
+        return self
+
     @classmethod
     def apply_click_options(cls, command):
         for field_name, field_info in cls.model_fields.items():
