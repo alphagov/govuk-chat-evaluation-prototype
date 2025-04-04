@@ -23,10 +23,8 @@ class Config(BaseConfig):
     )
 
     @model_validator(mode="after")
-    def check_provider_required(self) -> Self:
-        if self.generate and self.provider is None:
-            raise ValueError("Provider is required to generate data")
-        return self
+    def run_validatons(self) -> Self:
+        return self._validate_fields_required_for_generate("provider")
 
 
 @click.command(name="jailbreak_guardrails")
