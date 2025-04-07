@@ -10,8 +10,6 @@ import pandas as pd
 from deepeval import evaluate as deepeval_evaluate
 from deepeval.evaluate import TestResult
 from deepeval.test_case import LLMTestCase, MLLMTestCase
-from deepeval.metrics import BaseMetric
-
 
 from ..timing import Timer
 from ..file_system import jsonl_to_models
