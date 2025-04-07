@@ -1,28 +1,36 @@
-import json
 import os
 
 import pytest
 import yaml
 from click.testing import CliRunner
 
-from govuk_chat_evaluation.rag_answers.cli import main
+from govuk_chat_evaluation.rag_answers.cli import main, Config
+from govuk_chat_evaluation.rag_answers.data_models import EvaluationTestCase
 
 
-@pytest.fixture
-def mock_input_data(mock_project_root):
-    data = [
-        {"question": "Question 1", "llm_answer": "Hi", "ideal_answer": "Hello"},
-        {"question": "Question 2", "llm_answer": "Bye", "ideal_answer": "Bye"},
-    ]
+class TestConfig:
+    def test_config_requires_provider_for_generate(self, mock_input_data):
+        with pytest.raises(ValueError, match="provider is required to generate data"):
+            Config(
+                what="Test",
+                generate=True,
+                provider=None,
+                input_path=mock_input_data,
+            )
 
-    path = mock_project_root / "input_data.jsonl"
+        Config(
+            what="Test",
+            generate=False,
+            provider=None,
+            input_path=mock_input_data,
+        )
 
-    with open(path, "w") as file:
-        for item in data:
-            json.dump(item, file)
-            file.write("\n")
-
-    return str(path)
+        Config(
+            what="Test",
+            generate=True,
+            provider="openai",
+            input_path=mock_input_data,
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -30,6 +38,8 @@ def mock_config_file(tmp_path, mock_input_data):
     """Write a config file as an input for testing"""
     data = {
         "what": "Testing RAG Answer evaluations",
+        "generate": True,
+        "provider": "openai",
         "input_path": str(mock_input_data),
     }
     file_path = tmp_path / "config.yaml"
@@ -43,6 +53,23 @@ def mock_config_file(tmp_path, mock_input_data):
 def freeze_time_for_all_tests(freezer):
     """Automatically freeze time for all tests in this file."""
     freezer.move_to("2024-11-11 12:34:56")
+
+
+@pytest.fixture
+def mock_data_generation(mocker):
+    return_value = [
+        EvaluationTestCase(
+            question="Question", ideal_answer="An answer", llm_answer="An answer"
+        ),
+        EvaluationTestCase(
+            question="Question", ideal_answer="An answer", llm_answer="An answer"
+        ),
+    ]
+
+    return mocker.patch(
+        "govuk_chat_evaluation.rag_answers.generate.generate_inputs_to_evaluation_test_cases",
+        return_value=return_value,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -60,6 +87,7 @@ def mock_output_directory(mock_project_root):
     return mock_project_root / "results" / "rag_answers" / "2024-11-11T12:34:56"
 
 
+@pytest.mark.usefixtures("mock_data_generation")
 def test_main_creates_output_files(mock_output_directory, mock_config_file):
     runner = CliRunner()
     result = runner.invoke(main, [mock_config_file])
@@ -69,3 +97,25 @@ def test_main_creates_output_files(mock_output_directory, mock_config_file):
     assert result.exit_code == 0, result.output
     assert mock_output_directory.exists()
     assert config_file.exists()
+
+
+def test_main_generates_results(
+    mock_output_directory, mock_config_file, mock_data_generation
+):
+    runner = CliRunner()
+    result = runner.invoke(main, [mock_config_file, "--generate"])
+
+    generated_file = mock_output_directory / "generated.jsonl"
+
+    assert result.exit_code == 0, result.output
+    mock_data_generation.assert_called_once()
+    assert generated_file.exists()
+
+
+@pytest.mark.usefixtures("mock_output_directory")
+def test_main_doesnt_generate_results(mock_config_file, mock_data_generation):
+    runner = CliRunner()
+    result = runner.invoke(main, [mock_config_file, "--no-generate"])
+
+    assert result.exit_code == 0, result.output
+    mock_data_generation.assert_not_called()
