@@ -8,7 +8,7 @@ from govuk_chat_evaluation.jailbreak_guardrails.evaluate import EvaluationResult
 
 class TestConfig:
     def test_config_requires_provider_for_generate(self, mock_input_data):
-        with pytest.raises(ValueError, match="Provider is required to generate data"):
+        with pytest.raises(ValueError, match="provider is required to generate data"):
             Config(
                 what="Test",
                 generate=True,
