@@ -129,19 +129,13 @@ class EvaluationResults:
 class AggregatedResults:
     def __init__(
         self,
-        evaluation_results: list,
-        additional_metric_fields: list[str] = [],
-        additional_result_fields: list[str] = []
+        evaluation_results: list
     ):
         """
         Args:
             evaluation_results: List of TestResult objects.
-            additional_metric_fields : List of additional metric fields to include.
-            additional_result_fields : List of additional result fields to include.
         """
         self.evaluation_results = evaluation_results
-        self.additional_metric_fields = additional_metric_fields or []
-        self.additional_result_fields = additional_result_fields or []
 
     @cached_property
     def flattened_results(self) -> list[dict]:
@@ -177,12 +171,6 @@ class AggregatedResults:
                     "rag_answer": result.actual_output,
                     "ideal_answer": result.expected_output,
                 }
-
-                for field in self.additional_metric_fields:
-                    entry[field] = getattr(metric, field, None)
-
-                for field in self.additional_result_fields:
-                    entry[field] = getattr(result, field, None)
 
                 results.append(entry)
 
