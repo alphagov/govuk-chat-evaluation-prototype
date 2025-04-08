@@ -1,4 +1,3 @@
-import logging
 import os
 from pathlib import Path
 from typing import cast, Any
@@ -15,8 +14,6 @@ from ..timing import Timer
 from ..file_system import jsonl_to_models
 from .data_models import EvaluationTestCase, EvaluationConfig
 
-
-logger = logging.getLogger(__name__)
 
 
 # would expect we need to pass config object through if that has metrics configuration
@@ -85,12 +82,12 @@ class EvaluationResults:
         """
 
         with Timer("Running Deepval Evaluation"):
-            logger.info("Running Deepval evaluation")
+            print("Running Deepval evaluation")
 
             all_evaluation_runs = []
 
             for i in range(self.n_runs):
-                logger.info(f"Running evaluation iteration {i+1}/{self.n_runs}...")
+                print(f"Running evaluation iteration {i+1}/{self.n_runs}...")
 
                 evaluation_run = deepeval_evaluate(
                     test_cases=cast(list[LLMTestCase | MLLMTestCase], self.cases), # hint to type checker: this is a List[LLMTestCase | MLLMTestCase], even though it's just List[LLMTestCase]
@@ -100,7 +97,7 @@ class EvaluationResults:
 
                 all_evaluation_runs.append(evaluation_run.test_results)  # Store results per run
 
-        logger.info("Deepval evaluation complete")
+        print("Deepval evaluation complete")
         
         self.evaluation_results = [results for run in all_evaluation_runs for results in run]
 
