@@ -11,11 +11,6 @@ from deepeval.metrics import (
 )
 from deepeval.models import DeepEvalBaseLLM
 
-class GeneratedCaseParams(Enum):
-    QUESTION = "question"
-    LLM_ANSWER = "llm_answer"
-    RETRIEVED_CONTEXT = "retrieved_context"
-
 
 class StructuredContext(BaseModel):
     title: str
