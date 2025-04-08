@@ -23,7 +23,16 @@ class StructuredContext(BaseModel):
     description: str
     html_content: str
     exact_path: str
-    base_path: str    
+    base_path: str
+
+    def to_flattened_string(self) -> str:
+        """Return the flattened string representation of the structure context."""
+        return (
+            f"{self.title}\n"
+            f"{' > '.join(self.heading_hierarchy)}\n"
+            f"{self.description}\n\n"
+            f"{self.html_content}"
+        )    
 
 class GenerateInput(BaseModel):
     question: str
@@ -33,8 +42,7 @@ class GenerateInput(BaseModel):
 
 class EvaluationTestCase(GenerateInput):
     llm_answer: str
-    retrieved_context: list[str]
-    # TODO: lots more data fields [Alessia: I do not think we need extra fields here]
+    retrieved_context: list[StructuredContext]
 
     def to_llm_test_case(self) -> LLMTestCase:
         return LLMTestCase(
@@ -42,33 +50,8 @@ class EvaluationTestCase(GenerateInput):
             name = str(uuid.uuid4()),
             expected_output=self.ideal_answer,
             actual_output=self.llm_answer,
-            retrieval_context=self.retrieved_context,  # type: ignore
+            retrieval_context=[ctx.to_flattened_string() for ctx in self.retrieved_context]
         )
-    
-    @model_validator(mode="before")
-    @classmethod
-    def flatten_retrieved_context(cls, data: dict[str, Any]) -> dict[str, Any]:
-        """Convert the retrieved context from a list of dictionaries to a flatnlist of strings. 
-        This is done to ensure compatibility with the LLMTestCase class and for better compatibility with the Faitfulness metric."""
-        raw_context = data.get("retrieved_context", [])
-        if raw_context and isinstance(raw_context[0], dict):
-
-            structured = []
-            for i, ctx_dict in enumerate(raw_context):
-                try:
-                    structured_ctx = StructuredContext(**ctx_dict)
-                    structured.append(structured_ctx)
-                except Exception as e:
-                    raise ValueError(f"Invalid context at index {i}: {e}")
-                
-            data["retrieved_context"] = [
-                f"{ctx.title}\n"
-                f"{' > '.join(ctx.heading_hierarchy)}\n"
-                f"{ctx.description}\n\n"
-                f"{ctx.html_content}"
-                for ctx in structured
-            ]
-        return data
 
 
 class MetricName(str, Enum):
