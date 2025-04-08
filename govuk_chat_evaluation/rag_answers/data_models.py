@@ -138,16 +138,4 @@ class EvaluationResult:
     expected_output: str
     retrieval_context: list[str]
     evaluation_results: list[RunMetricOutput]
-
-    def average_scores_by_metric(self) -> dict[str, float]:
-        scores_by_metric = defaultdict(list)
-        
-        for result in self.evaluation_results:
-            scores_by_metric[result.metric].append(result.score)
-        
-        # Calculate the average for each metric
-        return {
-            metric: mean(scores)
-            for metric, scores in scores_by_metric.items()
-            if scores  # guard against empty lists
-        }
+    
