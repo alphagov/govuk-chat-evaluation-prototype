@@ -36,7 +36,8 @@ def mock_config_file(tmp_path, mock_input_data):
     """Write a config file as an input for testing"""
     data = {
         "what": "Testing Jailbreak Guardrail evaluations",
-        "generate": False,
+        "provider": "openai",
+        "generate": True,
         "input_path": str(mock_input_data),
     }
     file_path = tmp_path / "config.yaml"
@@ -76,6 +77,7 @@ def mock_output_directory(mock_project_root):
     )
 
 
+@pytest.mark.usefixtures("mock_data_generation")
 def test_main_creates_output_files(mock_output_directory, mock_config_file):
     runner = CliRunner()
     result = runner.invoke(main, [mock_config_file])

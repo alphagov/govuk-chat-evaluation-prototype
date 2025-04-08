@@ -14,7 +14,7 @@ class GenerateInput(BaseModel):
 
 
 def generate_and_write_dataset(input_path: Path, provider: str, output_dir: Path):
-    models = jsonl_to_models(Path(input_path), GenerateInput)
+    models = jsonl_to_models(input_path, GenerateInput)
     generated = generate_inputs_to_evaluation_results(provider, models)
     return write_generated_to_output(output_dir, generated)
 
