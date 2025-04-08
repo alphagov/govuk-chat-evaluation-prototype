@@ -5,13 +5,25 @@ from deepeval.metrics import (
     FaithfulnessMetric,
     BiasMetric,
 )
-from govuk_chat_evaluation.rag_answers.data_models import EvaluationTestCase, MetricConfig, EvaluationConfig
+from govuk_chat_evaluation.rag_answers.data_models import EvaluationTestCase, MetricConfig, EvaluationConfig, StructuredContext
 
 
 class TestEvaluationTestCase:
     def test_to_llm_test_case(self):
+        structured_context = StructuredContext(
+            title="VAT",
+            heading_hierarchy=["Tax", "VAT"],
+            description="VAT overview",
+            html_content="<p>Some HTML about VAT</p>",
+            exact_path="https://gov.uk/vat",
+            base_path="https://gov.uk"
+        )
+        
         evaluation_test_case = EvaluationTestCase(
-            question="How are you?", ideal_answer="Great", llm_answer="Fine", retrieved_context=["Context 1", "Context 2"]
+            question="How are you?", 
+            ideal_answer="Great", 
+            llm_answer="Fine", 
+            retrieved_context=[structured_context]
         )
 
         llm_test_case = evaluation_test_case.to_llm_test_case()
@@ -20,35 +32,32 @@ class TestEvaluationTestCase:
         assert llm_test_case.input == evaluation_test_case.question
         assert llm_test_case.expected_output == evaluation_test_case.ideal_answer
         assert llm_test_case.actual_output == evaluation_test_case.llm_answer
-        assert llm_test_case.retrieval_context == evaluation_test_case.retrieved_context
         assert llm_test_case.name is not None
         assert isinstance(llm_test_case.name, str)
 
-    def test_flattening_structured_context(self):
-        structured = [
-            {
-                "title": "VAT",
-                "heading_hierarchy": ["Tax", "VAT"],
-                "description": "VAT overview",
-                "html_content": "<p>Some HTML about VAT</p>",
-                "exact_path": "https://gov.uk/vat",
-                "base_path": "https://gov.uk"
-            }
-        ]
+        assert isinstance(llm_test_case.retrieval_context, list)
+        assert all(isinstance(chunk, str) for chunk in llm_test_case.retrieval_context)
+        assert "VAT" in llm_test_case.retrieval_context[0]  
+        assert "Some HTML about VAT" in llm_test_case.retrieval_context[0]
 
-        case = EvaluationTestCase(
-            question="What is VAT?",
-            ideal_answer="VAT is a tax.",
-            llm_answer="VAT stands for Value Added Tax.",
-            retrieved_context=structured # type: ignore
+class TestStructuredContext:
+    def test_to_flattened_string(self):
+        structured_context = StructuredContext(
+            title="VAT",
+            heading_hierarchy=["Tax", "VAT"],
+            description="VAT overview",
+            html_content="<p>Some HTML about VAT</p>",
+            exact_path="https://gov.uk/vat",
+            base_path="https://gov.uk"
         )
 
-        # Ensure flattening occurred
-        assert isinstance(case.retrieved_context, list)
-        assert all(isinstance(chunk, str) for chunk in case.retrieved_context)
-        assert "VAT" in case.retrieved_context[0]
-        assert "Some HTML about VAT" in case.retrieved_context[0]
+        flattened_string = structured_context.to_flattened_string()
 
+        assert isinstance(flattened_string, str)
+        assert "VAT" in flattened_string
+        assert "Tax > VAT" in flattened_string
+        assert "VAT overview" in flattened_string
+        assert "<p>Some HTML about VAT</p>" in flattened_string
 
 @pytest.mark.parametrize(
     "config_dict, expected_class",
