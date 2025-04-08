@@ -1,8 +1,11 @@
 from deepeval.test_case import LLMTestCase
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel
+from pydantic.dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Optional
 import uuid
+from collections import defaultdict
+from statistics import mean
 
 from deepeval.metrics import (
     FaithfulnessMetric,
@@ -116,3 +119,35 @@ class EvaluationConfig(BaseModel):
     def get_metric_instances(self):
         """Return the list of runtime metric objects for evaluation."""
         return [metric.to_metric_instance(self.llm_judge_instance) for metric in self.metrics]  # type: ignore
+    
+
+@dataclass
+class RunMetricOutput:
+    run: int
+    metric: str
+    score: float
+    cost: float | None = None
+    reason: str | None = None
+    success: bool | None = None
+
+@dataclass
+class EvaluationResult:
+    name: str
+    input: str
+    actual_output: str
+    expected_output: str
+    retrieval_context: list[str]
+    evaluation_results: list[RunMetricOutput]
+
+    def average_scores_by_metric(self) -> dict[str, float]:
+        scores_by_metric = defaultdict(list)
+        
+        for result in self.evaluation_results:
+            scores_by_metric[result.metric].append(result.score)
+        
+        # Calculate the average for each metric
+        return {
+            metric: mean(scores)
+            for metric, scores in scores_by_metric.items()
+            if scores  # guard against empty lists
+        }
