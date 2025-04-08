@@ -10,7 +10,7 @@ from deepeval import evaluate as deepeval_evaluate
 from deepeval.evaluate import TestResult
 from deepeval.test_case import LLMTestCase, MLLMTestCase
 
-from ..timing import Timer
+from ..timing import print_task_duration
 from ..file_system import jsonl_to_models
 from .data_models import EvaluationTestCase, EvaluationConfig
 
@@ -81,8 +81,8 @@ class EvaluationResults:
 
         """
 
-        with Timer("Running Deepval Evaluation"):
-            print("Running Deepval evaluation")
+        with print_task_duration("Running DeepEval Evaluation"):
+            print("Running DeepEval evaluation")
 
             all_evaluation_runs = []
 
@@ -97,7 +97,7 @@ class EvaluationResults:
 
                 all_evaluation_runs.append(evaluation_run.test_results)  # Store results per run
 
-        print("Deepval evaluation complete")
+        print("DeepEval evaluation complete")
         
         self.evaluation_results = [results for run in all_evaluation_runs for results in run]
 
