@@ -17,4 +17,4 @@ def mock_input_data(mock_project_root):
             json.dump(item, file)
             file.write("\n")
 
-    return str(path)
+    return path
