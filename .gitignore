@@ -24,6 +24,3 @@ wheels/
 # configs
 /config/*
 !/config/defaults
-
-# VSCode
-.vscode/
