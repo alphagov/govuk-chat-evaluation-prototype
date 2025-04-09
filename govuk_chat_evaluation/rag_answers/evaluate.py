@@ -49,7 +49,7 @@ def evaluate_and_output_results(
 
     evaluation_results = convert_deepeval_output_to_evaluation_results(evaluation_outputs)
     
-    aggregation = AggregatedResults(evaluation_results)  # type: ignore
+    aggregation = AggregatedResults(evaluation_results)
 
     # calculate aggregated results and exports results to CSV files
     aggregation.export_to_csvs(output_dir)
@@ -62,7 +62,7 @@ def evaluate_and_output_results(
 class AggregatedResults:
     def __init__(
         self,
-        evaluation_results: list[EvaluationResult]
+        evaluation_results: list[EvaluationResult] | None
     ):
         """
         Args:
@@ -81,7 +81,7 @@ class AggregatedResults:
         # flatten the evaluation results
         data = []
 
-        for eval_result in self.evaluation_results:
+        for eval_result in self.evaluation_results or []:
             for evaluation_output in eval_result.run_metric_outputs:
                 data.append({
                     "name": eval_result.name,
