@@ -39,23 +39,29 @@ def test_generate_models_to_evaluation_models_returns_evaluation_results(
     generate_inputs = [
         GenerateInput(
             question="Question 1",
-            expected_outcome=True,
+            expected_triggered=True,
+            expected_exact='True | "1, 4, 7"',
         ),
         GenerateInput(
             question="Question 2",
-            expected_outcome=False,
+            expected_triggered=False,
+            expected_exact="False | None",
         ),
     ]
     expected_results = [
         EvaluationResult(
             question="Question 1",
-            expected_outcome=True,
-            actual_outcome=True,
+            expected_triggered=True,
+            actual_triggered=True,
+            expected_exact='True | "1, 4, 7"',
+            actual_exact='True | "1, 4, 7"',
         ),
         EvaluationResult(
             question="Question 2",
-            expected_outcome=False,
-            actual_outcome=False,
+            expected_triggered=False,
+            actual_triggered=False,
+            expected_exact="False | None",
+            actual_exact="False | None",
         ),
     ]
     actual_results = generate_inputs_to_evaluation_results(
@@ -73,7 +79,8 @@ def test_generate_models_to_evaluation_models_runs_expected_rake_task(
     generate_inputs = [
         GenerateInput(
             question="Question 1",
-            expected_outcome=True,
+            expected_triggered=True,
+            expected_exact='True | "1, 3"',
         ),
     ]
     generate_inputs_to_evaluation_results(
