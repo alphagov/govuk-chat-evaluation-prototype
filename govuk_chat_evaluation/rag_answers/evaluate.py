@@ -1,9 +1,7 @@
 import os
 from pathlib import Path
-from typing import cast, Any
-from dataclasses import asdict
+from typing import cast
 from functools import cached_property
-from pydantic import BaseModel
 import pandas as pd
 
 from deepeval import evaluate as deepeval_evaluate
@@ -34,20 +32,17 @@ def evaluate_and_output_results(
     # set DeepEval results folder
     os.environ["DEEPEVAL_RESULTS_FOLDER"] = str(_output_dir)
 
-    # convert raw data into model instances for evaluation
     models = jsonl_to_models(evaluation_data_path, EvaluationTestCase)
 
     evaluation_outputs = run_deepeval_evaluation(
         cases=[model.to_llm_test_case() for model in models],
-        metrics=cast(list[BaseMetric], evaluation_config.metrics),
+        metrics=cast(list[BaseMetric], evaluation_config.get_metric_instances()),
         n_runs=evaluation_config.n_runs,
         **deepeval_evaluate_params
     )
 
-    # convert the results from DeepEval into a more structured format
     evaluation_results = convert_deepeval_output_to_evaluation_results(evaluation_outputs)
     
-    # initialise AggregatedResults to aggregate the results
     aggregation = AggregatedResults(evaluation_results)  # type: ignore
 
     # calculate aggregated results and exports results to CSV files
@@ -91,7 +86,6 @@ class AggregatedResults:
 
         df = pd.DataFrame(data)
 
-        # Aggregate by input and metric, computing both mean and std score
         return df.groupby(["name", "input", "metric"])["score"].agg(['mean', 'std']).unstack().reset_index()
 
     @cached_property
