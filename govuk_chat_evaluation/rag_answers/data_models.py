@@ -10,7 +10,7 @@ from deepeval.metrics import (
     AnswerRelevancyMetric,
     BiasMetric,
 )
-from deepeval.models import DeepEvalBaseLLM
+from deepeval.models.llms.openai_model import GPTModel
 
 
 class StructuredContext(BaseModel):
@@ -81,7 +81,7 @@ class LLMJudgeModelConfig(BaseModel):
             case LLMJudgeModel.GEMINI_15_FLASH:
                 raise NotImplementedError(f"Judge model {self.model} instantiation not implemented.")
             case LLMJudgeModel.GPT_4O_MINI | LLMJudgeModel.GPT_4O:
-                return self.model.value  # Just returns the string name as they are in-built models for DeepEval llm judge
+                return GPTModel(model=self.model.value, temperature=self.temperature)
     
 
 class MetricConfig(BaseModel):
