@@ -23,25 +23,31 @@ class TestEvaluationResult:
             (True, False, "false_negative"),
         ],
     )
-    def test_classification(self, expected, actual, expected_classification):
+    def test_classification_triggered(self, expected, actual, expected_classification):
         result = EvaluationResult(
             question="Test question",
-            expected_outcome=expected,
-            actual_outcome=actual,
+            expected_triggered=expected,
+            actual_triggered=actual,
+            expected_exact="",
+            actual_exact="",
         )
-        assert result.classification == expected_classification
+        assert result.classification_triggered == expected_classification
 
     def test_for_csv(self):
         result = EvaluationResult(
             question="Test question",
-            expected_outcome=True,
-            actual_outcome=True,
+            expected_triggered=True,
+            actual_triggered=True,
+            expected_exact='True | "1, 3"',
+            actual_exact='True | "1, 3"',
         )
 
         assert result.for_csv() == {
             "question": "Test question",
-            "expected_outcome": True,
-            "actual_outcome": True,
+            "expected_triggered": True,
+            "actual_triggered": True,
+            "expected_exact": 'True | "1, 3"',
+            "actual_exact": 'True | "1, 3"',
             "classification": "true_positive",
         }
 
@@ -52,48 +58,66 @@ class TestAggregateResults:
         return [
             EvaluationResult(
                 question="Q1",
-                expected_outcome=True,
-                actual_outcome=True,
+                expected_triggered=True,
+                actual_triggered=True,
+                expected_exact='True | "1, 3"',
+                actual_exact='True | "1, 3"',
             ),  # TP
             EvaluationResult(
                 question="Q2",
-                expected_outcome=True,
-                actual_outcome=True,
+                expected_triggered=True,
+                actual_triggered=True,
+                expected_exact='True | "1, 3"',
+                actual_exact='True | "1, 3"',
             ),  # TP
             EvaluationResult(
                 question="Q3",
-                expected_outcome=True,
-                actual_outcome=True,
+                expected_triggered=True,
+                actual_triggered=True,
+                expected_exact='True | "1, 3"',
+                actual_exact='True | "1, 3"',
             ),  # TP
             EvaluationResult(
                 question="Q4",
-                expected_outcome=True,
-                actual_outcome=True,
+                expected_triggered=True,
+                actual_triggered=True,
+                expected_exact='True | "1, 3"',
+                actual_exact='True | "1, 3"',
             ),  # TP
             EvaluationResult(
                 question="Q5",
-                expected_outcome=False,
-                actual_outcome=False,
+                expected_triggered=False,
+                actual_triggered=False,
+                expected_exact="False | None",
+                actual_exact="False | None",
             ),  # TP
             EvaluationResult(
                 question="Q6",
-                expected_outcome=False,
-                actual_outcome=False,
+                expected_triggered=False,
+                actual_triggered=False,
+                expected_exact="False | None",
+                actual_exact="False | None",
             ),  # TP
             EvaluationResult(
                 question="Q7",
-                expected_outcome=False,
-                actual_outcome=False,
+                expected_triggered=False,
+                actual_triggered=False,
+                expected_exact="False | None",
+                actual_exact="False | None",
             ),  # TP
             EvaluationResult(
                 question="Q8",
-                expected_outcome=False,
-                actual_outcome=True,
+                expected_triggered=False,
+                actual_triggered=True,
+                expected_exact="False | None",
+                actual_exact='True | "1, 3"',
             ),  # TP
             EvaluationResult(
                 question="Q9",
-                expected_outcome=True,
-                actual_outcome=False,
+                expected_triggered=True,
+                actual_triggered=False,
+                expected_exact='True | "1, 3"',
+                actual_exact="False | None",
             ),  # TP
         ]
 
@@ -101,13 +125,17 @@ class TestAggregateResults:
         results = [
             EvaluationResult(
                 question="Q1",
-                expected_outcome=True,
-                actual_outcome=True,
+                expected_triggered=True,
+                actual_triggered=True,
+                expected_exact='True | "1, 3"',
+                actual_exact='True | "1, 3"',
             ),
             EvaluationResult(
                 question="Q2",
-                expected_outcome=False,
-                actual_outcome=True,
+                expected_triggered=False,
+                actual_triggered=True,
+                expected_exact="False | None",
+                actual_exact='True | "1, 3"',
             ),
         ]
         aggregate = AggregateResults(results)
@@ -117,13 +145,17 @@ class TestAggregateResults:
         results = [
             EvaluationResult(
                 question="Q1",
-                expected_outcome=True,
-                actual_outcome=False,
+                expected_triggered=True,
+                actual_triggered=False,
+                expected_exact='True | "1, 3"',
+                actual_exact="False | None",
             ),
             EvaluationResult(
                 question="Q2",
-                expected_outcome=False,
-                actual_outcome=False,
+                expected_triggered=False,
+                actual_triggered=False,
+                expected_exact="False | None",
+                actual_exact="False | None",
             ),
         ]
         aggregate = AggregateResults(results)
@@ -133,13 +165,17 @@ class TestAggregateResults:
         results = [
             EvaluationResult(
                 question="Q1",
-                expected_outcome=True,
-                actual_outcome=True,
+                expected_triggered=True,
+                actual_triggered=True,
+                expected_exact='True | "1, 3"',
+                actual_exact='True | "1, 3"',
             ),
             EvaluationResult(
                 question="Q2",
-                expected_outcome=True,
-                actual_outcome=False,
+                expected_triggered=True,
+                actual_triggered=False,
+                expected_exact='True | "1, 3"',
+                actual_exact="False | None",
             ),
         ]
         aggregate = AggregateResults(results)
@@ -149,13 +185,17 @@ class TestAggregateResults:
         results = [
             EvaluationResult(
                 question="Q1",
-                expected_outcome=False,
-                actual_outcome=False,
+                expected_triggered=False,
+                actual_triggered=False,
+                expected_exact="False | None",
+                actual_exact="False | None",
             ),
             EvaluationResult(
                 question="Q2",
-                expected_outcome=False,
-                actual_outcome=True,
+                expected_triggered=False,
+                actual_triggered=True,
+                expected_exact="False | None",
+                actual_exact='True | "1, 3"',
             ),
         ]
         aggregate = AggregateResults(results)
@@ -187,13 +227,17 @@ def mock_evaluation_data_file(tmp_path):
     data = [
         {
             "question": "Question",
-            "expected_outcome": True,
-            "actual_outcome": True,
+            "expected_triggered": True,
+            "actual_triggered": True,
+            "expected_exact": "True | None",
+            "actual_exact": "True | None",
         },
         {
             "question": "Question",
-            "expected_outcome": True,
-            "actual_outcome": False,
+            "expected_triggered": True,
+            "actual_triggered": False,
+            "expected_exact": "True | None",
+            "actual_exact": "False | None",
         },
     ]
 
