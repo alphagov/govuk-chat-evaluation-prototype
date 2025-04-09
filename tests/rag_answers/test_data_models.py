@@ -62,8 +62,8 @@ class TestStructuredContext:
 @pytest.mark.parametrize(
     "config_dict, expected_class",
     [
-        ({"name": "faithfulness", "threshold": 0.8,}, FaithfulnessMetric),
-        ({"name": "bias", "threshold": 0.5}, BiasMetric),
+        ({"name": "faithfulness", "threshold": 0.8, "model": "gpt-4o", "temperature": 0.0}, FaithfulnessMetric),
+        ({"name": "bias", "threshold": 0.5, "model": "gpt-4o", "temperature": 0.0}, BiasMetric),
     ]
 )
 def test_get_metric_instance_valid(config_dict, expected_class):
@@ -73,7 +73,7 @@ def test_get_metric_instance_valid(config_dict, expected_class):
 
 
 def test_get_metric_instance_invalid_enum():
-    config_dict = {"name": "does_not_exist", "threshold": 0.5}
+    config_dict = {"name": "does_not_exist", "threshold": 0.5, "model": "gpt-4o", "temperature": 0.0}
 
     with pytest.raises(ValidationError) as exception_info:
         MetricConfig(**config_dict)
@@ -86,13 +86,9 @@ class TestEvaluationConfig():
     def test_get_metric_instances(self):
         config_dict = {
             "metrics": [
-                {"name": "faithfulness", "threshold": 0.8},
-                {"name": "bias", "threshold": 0.5}
+                {"name": "faithfulness", "threshold": 0.8, "model": "gpt-4o", "temperature": 0.0},
+                {"name": "bias", "threshold": 0.5, "model": "gpt-4o", "temperature": 0.5}
             ],
-            "llm_judge": {
-                "model": "gpt-4o",
-                "temperature": 0.0
-            },
             "n_runs": 3
         }
 
@@ -104,8 +100,7 @@ class TestEvaluationConfig():
         assert isinstance(metrics[1], BiasMetric)
         assert metrics[0].threshold == 0.8
         assert metrics[1].threshold == 0.5
-        assert evaluation_config.llm_judge_instance is not None
-        assert isinstance(evaluation_config.llm_judge_instance, str)
-        assert evaluation_config.llm_judge_instance == "gpt-4o"
+        assert metrics[0].model.get_model_name() == "gpt-4o"
+        assert metrics[1].model.get_model_name() == "gpt-4o"
         assert isinstance(evaluation_config.n_runs, int)
         assert evaluation_config.n_runs == 3
