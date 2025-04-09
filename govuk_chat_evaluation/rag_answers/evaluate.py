@@ -31,7 +31,7 @@ def evaluate_and_output_results(
     Function to run the evaluation, aggregate the results, and export them to files.
 
     Args:
-        _output_dir: The directory to save the evaluation results.
+        output_dir: The directory to save the evaluation results.
         evaluation_data_path: Path to the JSONL file containing the evaluation data.
         evaluation_config: Configuration for the evaluation.
     """
