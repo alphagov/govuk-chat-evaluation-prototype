@@ -13,8 +13,8 @@ from .data_models import EvaluationTestCase, EvaluationConfig, EvaluationResult
 
 
 DEEPEVAL_EVAL_PARAMETERS = {
-    "print_results": "true",
-    "show_indicator": "true",
+    "print_results": False,
+    "show_indicator": True,
     "max_concurrent": 40,
     "throttle_value": 5,
     "use_cache": True,
