@@ -115,7 +115,7 @@ class EvaluationConfig(BaseModel):
     metrics: list[MetricConfig]
     n_runs: int
 
-    def get_metric_instances(self):
+    def metric_instances(self):
         """Return the list of runtime metric objects for evaluation."""
         return [metric.to_metric_instance() for metric in self.metrics]  # type: ignore
     
