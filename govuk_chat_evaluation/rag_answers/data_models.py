@@ -136,4 +136,4 @@ class EvaluationResult:
     actual_output: str
     expected_output: str
     retrieval_context: list[str]
-    evaluation_results: list[RunMetricOutput]
+    run_metric_outputs: list[RunMetricOutput]
