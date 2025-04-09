@@ -12,13 +12,20 @@ from ..file_system import jsonl_to_models
 from .data_models import EvaluationTestCase, EvaluationConfig, EvaluationResult
 
 
+DEEPEVAL_EVAL_PARAMETERS = {
+    "print_results": "true",
+    "show_indicator": "true",
+    "max_concurrent": 40,
+    "throttle_value": 5,
+    "use_cache": True,
+    "ignore_errors": True,
+}
 
 # would expect we need to pass config object through if that has metrics configuration
 def evaluate_and_output_results(
     _output_dir: Path, 
     evaluation_data_path: Path, 
-    evaluation_config: EvaluationConfig, 
-    deepeval_evaluate_params: dict
+    evaluation_config: EvaluationConfig
 ):
     """
     Function to run the evaluation, aggregate the results, and export them to files.
@@ -27,7 +34,6 @@ def evaluate_and_output_results(
         _output_dir: The directory to save the evaluation results.
         evaluation_data_path: Path to the JSONL file containing the evaluation data.
         evaluation_config: Configuration for the evaluation.
-        deepeval_evaluate_params: Parameters to be passed to deepeval evaluation.
     """
     # set DeepEval results folder
     os.environ["DEEPEVAL_RESULTS_FOLDER"] = str(_output_dir)
@@ -38,7 +44,7 @@ def evaluate_and_output_results(
         cases=[model.to_llm_test_case() for model in models],
         metrics=cast(list[BaseMetric], evaluation_config.get_metric_instances()),
         n_runs=evaluation_config.n_runs,
-        **deepeval_evaluate_params
+        **DEEPEVAL_EVAL_PARAMETERS
     )
 
     evaluation_results = convert_deepeval_output_to_evaluation_results(evaluation_outputs)
