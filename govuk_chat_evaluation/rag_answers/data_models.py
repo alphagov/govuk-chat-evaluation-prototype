@@ -1,11 +1,9 @@
 from deepeval.test_case import LLMTestCase
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from pydantic.dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Any
 import uuid
-from collections import defaultdict
-from statistics import mean
 
 from deepeval.metrics import (
     FaithfulnessMetric,
@@ -66,7 +64,6 @@ class LLMJudgeModel(str, Enum):
     GEMINI_15_PRO = "gemini-1.5-pro-002"
     GEMINI_15_FLASH = "gemini-1.5-flash-002"
 
-
 class LLMJudgeModelConfig(BaseModel):
     model: LLMJudgeModel
     temperature: float = 0.0
@@ -75,13 +72,14 @@ class LLMJudgeModelConfig(BaseModel):
         """Return the LLM judge model instance."""
         match self.model:
             case LLMJudgeModel.AMAZON_NOVA_MICRO_1:
-                return None  # Placeholder for actual class instance
+                raise NotImplementedError(f"Judge model {self.model} instantiation not implemented.")
+                # Placeholder for actual class instance - e.g., CustomAmazonNovaJudge(model_name=self.model.value, temperature=self.temperature)
             case LLMJudgeModel.AMAZON_NOVA_PRO_1:
-                return None  # Placeholder
+                raise NotImplementedError(f"Judge model {self.model} instantiation not implemented.")
             case LLMJudgeModel.GEMINI_15_PRO:
-                return None  # Placeholder
+                raise NotImplementedError(f"Judge model {self.model} instantiation not implemented.")
             case LLMJudgeModel.GEMINI_15_FLASH:
-                return None  # Placeholder
+                raise NotImplementedError(f"Judge model {self.model} instantiation not implemented.")
             case LLMJudgeModel.GPT_4O_MINI | LLMJudgeModel.GPT_4O:
                 return self.model.value  # Just returns the string name as they are in-built models for DeepEval llm judge
     
@@ -89,36 +87,37 @@ class LLMJudgeModelConfig(BaseModel):
 class MetricConfig(BaseModel):
     name: MetricName
     threshold: float
-    # model: str | DeepEvalBaseLLM
+    llm_judge: LLMJudgeModelConfig
 
-    def to_metric_instance(self, llm_judge: DeepEvalBaseLLM | None = None):
+    @model_validator(mode="before")
+    @classmethod
+    def inject_llm_judge(cls, values: dict[str, Any]) -> dict[str, Any]:
+        # extract model and temperature to build llm_judge
+        if "llm_judge" not in values:
+            values["llm_judge"] = {
+                "model": values.pop("model"),
+                "temperature": values.pop("temperature", 0.0),
+            }
+        return values
+
+    def to_metric_instance(self):
+        model = self.llm_judge.instantiate_llm_judge()
         match self.name:
             case MetricName.FAITHFULNESS:
-                return FaithfulnessMetric(threshold=self.threshold, model=llm_judge)
+                return FaithfulnessMetric(threshold=self.threshold, model=model)
             case MetricName.RELEVANCE:
-                return AnswerRelevancyMetric(threshold=self.threshold, model=llm_judge)
+                return AnswerRelevancyMetric(threshold=self.threshold, model=model)
             case MetricName.BIAS:
-                return BiasMetric(threshold=self.threshold, model=llm_judge)
+                return BiasMetric(threshold=self.threshold, model=model)
 
 
 class EvaluationConfig(BaseModel):
     metrics: list[MetricConfig]
-    llm_judge: LLMJudgeModelConfig
-    n_runs: int = 1
-    llm_judge_instance: Optional[DeepEvalBaseLLM | str] = None
-
-    class Config:
-        arbitrary_types_allowed = True  # Allow arbitrary types for llm_judge_instance
-
-    # I am not fully happy with this solution, but it works for now
-    # I do not want to instantiate a new llm judge model class for each metric
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.llm_judge_instance = self.llm_judge.instantiate_llm_judge()
+    n_runs: int
 
     def get_metric_instances(self):
         """Return the list of runtime metric objects for evaluation."""
-        return [metric.to_metric_instance(self.llm_judge_instance) for metric in self.metrics]  # type: ignore
+        return [metric.to_metric_instance() for metric in self.metrics]  # type: ignore
     
 
 @dataclass
@@ -138,4 +137,3 @@ class EvaluationResult:
     expected_output: str
     retrieval_context: list[str]
     evaluation_results: list[RunMetricOutput]
-    
