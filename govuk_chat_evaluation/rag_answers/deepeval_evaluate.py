@@ -141,6 +141,6 @@ def convert_deepeval_output_to_evaluation_results(all_runs: list[list[TestResult
             )
         )
 
-        return aggregated_results
+    return aggregated_results
 
 
