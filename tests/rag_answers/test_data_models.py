@@ -93,7 +93,7 @@ class TestEvaluationConfig():
         }
 
         evaluation_config = EvaluationConfig(**config_dict)
-        metrics = evaluation_config.get_metric_instances()
+        metrics = evaluation_config.metric_instances()
 
         assert len(metrics) == 2
         assert isinstance(metrics[0], FaithfulnessMetric)
