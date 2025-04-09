@@ -42,7 +42,7 @@ def evaluate_and_output_results(
 
     evaluation_outputs = run_deepeval_evaluation(
         cases=[model.to_llm_test_case() for model in models],
-        metrics=cast(list[BaseMetric], evaluation_config.get_metric_instances()),
+        metrics=cast(list[BaseMetric], evaluation_config.metric_instances()),
         n_runs=evaluation_config.n_runs,
         **DEEPEVAL_EVAL_PARAMETERS
     )
@@ -82,7 +82,7 @@ class AggregatedResults:
         data = []
 
         for eval_result in self.evaluation_results:
-            for evaluation_output in eval_result.evaluation_results:
+            for evaluation_output in eval_result.run_metric_outputs:
                 data.append({
                     "name": eval_result.name,
                     "input": eval_result.input,

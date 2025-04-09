@@ -137,7 +137,7 @@ def convert_deepeval_output_to_evaluation_results(all_runs: list[list[TestResult
                 actual_output=sample_result.actual_output,
                 expected_output=sample_result.expected_output,
                 retrieval_context=sample_result.retrieval_context or [],
-                evaluation_results=evaluation_outputs,
+                run_metric_outputs=evaluation_outputs,
             )
         )
 
