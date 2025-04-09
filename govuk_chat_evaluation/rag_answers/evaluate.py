@@ -23,7 +23,7 @@ DEEPEVAL_EVAL_PARAMETERS = {
 
 # would expect we need to pass config object through if that has metrics configuration
 def evaluate_and_output_results(
-    _output_dir: Path, 
+    output_dir: Path, 
     evaluation_data_path: Path, 
     evaluation_config: EvaluationConfig
 ):
@@ -36,7 +36,7 @@ def evaluate_and_output_results(
         evaluation_config: Configuration for the evaluation.
     """
     # set DeepEval results folder
-    os.environ["DEEPEVAL_RESULTS_FOLDER"] = str(_output_dir)
+    os.environ["DEEPEVAL_RESULTS_FOLDER"] = str(output_dir)
 
     models = jsonl_to_models(evaluation_data_path, EvaluationTestCase)
 
@@ -52,7 +52,7 @@ def evaluate_and_output_results(
     aggregation = AggregatedResults(evaluation_results)  # type: ignore
 
     # calculate aggregated results and exports results to CSV files
-    aggregation.export_to_csvs(_output_dir, prefix="alessia_test")
+    aggregation.export_to_csvs(output_dir, prefix="alessia_test")
 
     print("Evaluation Results:")
     print(aggregation.summary)
