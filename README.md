@@ -17,7 +17,7 @@ Run `uv pip install -e .` to install the executable.
 
 ### Usage
 
-Run `uv run govuk_chat_evaluation` to run an evaluation.
+Run `uv run -m govuk_chat_evaluation` to run an evaluation.
 
 ### Development tasks
 
