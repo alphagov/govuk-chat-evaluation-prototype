@@ -111,13 +111,13 @@ class AggregatedResults:
             "std": mean_df.std(),
         })
 
-    def export_to_csvs(self, _output_dir: Path, prefix: str = "metrics") -> None:
+    def export_to_csvs(self, output_dir: Path, prefix: str = "metrics") -> None:
         """
         Exports per-input and summary metric statistics to CSV files.
 
         Args:
             prefix: Prefix for output file names.
         """
-        pd.DataFrame(self.evaluation_results).to_csv(_output_dir / f"{prefix}_tidy_results.csv")
-        self.per_input_metric_averages.to_csv(_output_dir / f"{prefix}_per_input.csv")
-        self.summary.to_csv(_output_dir / f"{prefix}_summary.csv")
+        pd.DataFrame(self.evaluation_results).to_csv(output_dir / f"{prefix}_tidy_results.csv")
+        self.per_input_metric_averages.to_csv(output_dir / f"{prefix}_per_input.csv")
+        self.summary.to_csv(output_dir / f"{prefix}_summary.csv")
