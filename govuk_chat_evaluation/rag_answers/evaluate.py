@@ -52,7 +52,7 @@ def evaluate_and_output_results(
     aggregation = AggregatedResults(evaluation_results)  # type: ignore
 
     # calculate aggregated results and exports results to CSV files
-    aggregation.export_to_csvs(output_dir, prefix="alessia_test")
+    aggregation.export_to_csvs(output_dir)
 
     print("Evaluation Results:")
     print(aggregation.summary)
@@ -111,13 +111,13 @@ class AggregatedResults:
             "std": mean_df.std(),
         })
 
-    def export_to_csvs(self, output_dir: Path, prefix: str = "metrics") -> None:
+    def export_to_csvs(self, output_dir: Path) -> None:
         """
         Exports per-input and summary metric statistics to CSV files.
 
         Args:
             prefix: Prefix for output file names.
         """
-        pd.DataFrame(self.evaluation_results).to_csv(output_dir / f"{prefix}_tidy_results.csv")
-        self.per_input_metric_averages.to_csv(output_dir / f"{prefix}_per_input.csv")
-        self.summary.to_csv(output_dir / f"{prefix}_summary.csv")
+        pd.DataFrame(self.evaluation_results).to_csv(output_dir / "tidy_results.csv")
+        self.per_input_metric_averages.to_csv(output_dir / "results_per_input.csv")
+        self.summary.to_csv(output_dir / f"results_summary.csv")
