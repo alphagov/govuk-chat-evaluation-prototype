@@ -5,7 +5,14 @@ from deepeval.metrics import (
     FaithfulnessMetric,
     BiasMetric,
 )
-from govuk_chat_evaluation.rag_answers.data_models import EvaluationTestCase, MetricConfig, EvaluationConfig, StructuredContext
+from govuk_chat_evaluation.rag_answers.data_models import (
+    EvaluationTestCase, 
+    MetricConfig, 
+    EvaluationConfig, 
+    StructuredContext, 
+    RunMetricOutput, 
+    EvaluationResult
+)
 
 
 class TestEvaluationTestCase:
@@ -104,3 +111,58 @@ class TestEvaluationConfig():
         assert metrics[1].model.get_model_name() == "gpt-4o"
         assert isinstance(evaluation_config.n_runs, int)
         assert evaluation_config.n_runs == 3
+
+def test_run_metric_output_defaults():
+    rmo = RunMetricOutput(run=1, metric="faithfulness", score=0.87)
+    
+    assert rmo.run == 1
+    assert rmo.metric == "faithfulness"
+    assert rmo.score == 0.87
+    assert rmo.cost is None
+    assert rmo.reason is None
+    assert rmo.success is None
+
+def test_evaluation_result_basic_init():
+    rmo = RunMetricOutput(run=1, metric="bias", score=0.9)
+    eval_result = EvaluationResult(
+        name="test_case_1",
+        input="What is the capital of France?",
+        actual_output="It is Paris",
+        expected_output="Paris",
+        retrieval_context=["some relevant text"],
+        run_metric_outputs=[rmo],
+    )
+
+    assert eval_result.name == "test_case_1"
+    assert eval_result.input == "What is the capital of France?"
+    assert eval_result.retrieval_context == ["some relevant text"]
+    assert isinstance(eval_result.run_metric_outputs[0], RunMetricOutput)
+
+
+# usage test
+def evaluate_successful_runs(evaluation: EvaluationResult) -> list[int]:
+    """Return the list of run IDs that were successful."""
+    return [
+        run_output.run
+        for run_output in evaluation.run_metric_outputs
+        if run_output.success is True
+    ]
+
+
+def test_evaluate_successful_runs():
+    rmo1 = RunMetricOutput(run=1, metric="accuracy", score=0.95, success=True)
+    rmo2 = RunMetricOutput(run=2, metric="accuracy", score=0.60, success=False)
+    rmo3 = RunMetricOutput(run=3, metric="accuracy", score=0.88, success=True)
+
+    evaluation = EvaluationResult(
+        name="MultiRunTest",
+        input="Test input",
+        actual_output="output",
+        expected_output="output",
+        retrieval_context=[],
+        run_metric_outputs=[rmo1, rmo2, rmo3],
+    )
+
+    successful_runs = evaluate_successful_runs(evaluation)
+    
+    assert successful_runs == [1, 3]
