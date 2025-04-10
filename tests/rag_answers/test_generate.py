@@ -29,10 +29,10 @@ def test_generate_models_to_evaluation_test_cases_returns_evaluation_test_cases(
     ]
     expected_results = [
         EvaluationTestCase(
-            question="Question 1", ideal_answer="Answer 1", llm_answer="An answer"
+            question="Question 1", ideal_answer="Answer 1", llm_answer="An answer", retrieved_context=[]
         ),
         EvaluationTestCase(
-            question="Question 2", ideal_answer="Answer 2", llm_answer="An answer"
+            question="Question 2", ideal_answer="Answer 2", llm_answer="An answer", retrieved_context=[]
         ),
     ]
     actual_results = generate_inputs_to_evaluation_test_cases("openai", generate_inputs)
