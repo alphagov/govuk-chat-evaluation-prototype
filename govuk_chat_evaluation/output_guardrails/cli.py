@@ -34,6 +34,7 @@ class Config(BaseConfig):
 )
 @apply_click_options_to_command(Config)
 def main(**cli_args):
+    """Run output guardrails evaluation"""
     start_time = datetime.now()
 
     config: Config = config_from_cli_args(
