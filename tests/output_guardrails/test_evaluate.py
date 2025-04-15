@@ -33,6 +33,43 @@ class TestEvaluationResult:
         )
         assert result.classification_triggered == expected_classification
 
+    @pytest.mark.parametrize(
+        "exact_str, expected_vec",
+        [
+            ('True | "1, 3"', [1, 0, 1, 0, 0, 0, 0]),
+            ('True | "1"', [1, 0, 0, 0, 0, 0, 0]),
+            ('True | "5, 6, 7"', [0, 0, 0, 0, 1, 1, 1]),
+            ("False | None", None),
+        ],
+    )
+    def test_expected_exact_triggered(self, exact_str, expected_vec):
+        result = EvaluationResult(
+            question="Test question",
+            expected_triggered=True,
+            actual_triggered=True,
+            expected_exact=exact_str,
+            actual_exact="Irrelevant",
+        )
+        assert result.expected_exact_triggered == expected_vec
+
+    @pytest.mark.parametrize(
+        "exact_str, expected_vec",
+        [
+            ('True | "1, 3"', [1, 0, 1, 0, 0, 0, 0]),
+            ('True | "1"', [1, 0, 0, 0, 0, 0, 0]),
+            ('True | "5, 6, 7"', [0, 0, 0, 0, 1, 1, 1]),
+        ],
+    )
+    def test_actual_exact_triggered(self, exact_str, expected_vec):
+        result = EvaluationResult(
+            question="Test question",
+            expected_triggered=True,
+            actual_triggered=True,
+            expected_exact="Irrelevant",
+            actual_exact=exact_str,
+        )
+        assert result.actual_exact_triggered == expected_vec
+
     def test_for_csv(self):
         result = EvaluationResult(
             question="Test question",
@@ -50,6 +87,93 @@ class TestEvaluationResult:
             "actual_exact": 'True | "1, 3"',
             "classification": "true_positive",
         }
+
+    @pytest.mark.parametrize(
+        "guardrails_str, num_guardrails, vec",
+        [
+            ("1, 2, 5", 7, [1, 1, 0, 0, 1, 0, 0]),
+            ("1, 2, 3, 4, 5, 6, 7", 7, [1, 1, 1, 1, 1, 1, 1]),
+            ("2", 7, [0, 1, 0, 0, 0, 0, 0]),
+        ],
+    )
+    def test_guardrail_str_to_vec(self, guardrails_str, num_guardrails, vec):
+        assert (
+            EvaluationResult.guardrail_str_to_vec(guardrails_str, num_guardrails) == vec
+        )
+
+    @pytest.mark.parametrize(
+        "input_str, num_guardrails, expected_tuple",
+        [
+            ('True | "1, 3"', 7, (True, "1, 3")),
+            ('True | "1"', 7, (True, "1")),
+            ('True | "7"', 7, (True, "7")),
+            ('True | "1, 7"', 7, (True, "1, 7")),
+            ("False | None", 7, (False, "None")),
+        ],
+    )
+    def test_parse_exact_string(self, input_str, num_guardrails, expected_tuple):
+        assert (
+            EvaluationResult.parse_exact_string(input_str, num_guardrails)
+            == expected_tuple
+        )
+
+    @pytest.mark.parametrize(
+        "invalid_input_str, num_guardrails",
+        [
+            ("True | 1, 2, 6", 7),  # Missing double quotes
+            ('True | ""', 7),  # Empty string in quotes
+            ('True | " "', 7),  # Whitespace string in quotes
+            ('False | "None"', 7),  # "None" should not be quoted
+            ("True | None", 7),  # True should have quoted digits, not None
+            ('False | "1, 2"', 7),  # False should have None, not quoted digits
+            ("Gibberish", 7),  # Completely incorrect format
+            ("True |", 7),  # Incomplete format
+            ("False | ", 7),  # Incomplete format
+            ('True | "1, 8"', 7),  # Number out of range (high)
+            ('True | "0, 7"', 7),  # Number out of range (low)
+            ('True | "1, 1"', 7),  # Duplicate number
+        ],
+    )
+    def test_parse_exact_string_invalid_format(self, invalid_input_str, num_guardrails):
+        """Test that parse_exact_string raises ValueError for invalid formats."""
+
+        if invalid_input_str in ('True | ""', 'True | " "'):
+            expected_error_pattern = re.escape(
+                f"Guardrail string '{invalid_input_str}' has 'True' but contains an empty "
+                f"quoted string. Expected comma-separated numbers."
+            )
+        elif invalid_input_str == 'True | "1, 8"':
+            expected_error_pattern = re.escape(
+                f"Guardrail string '{invalid_input_str}' contains numbers outside the "
+                f"valid range [1, {num_guardrails}]."
+            )
+        elif invalid_input_str == 'True | "0, 7"':
+            expected_error_pattern = re.escape(
+                f"Guardrail string '{invalid_input_str}' contains numbers outside the "
+                f"valid range [1, {num_guardrails}]."
+            )
+        elif invalid_input_str == 'True | "1, 1"':
+            expected_error_pattern = re.escape(
+                f"Guardrail string '{invalid_input_str}' contains duplicate guardrail numbers."
+            )
+        elif invalid_input_str == "True | None":
+            expected_error_pattern = re.escape(
+                f"Guardrail string '{invalid_input_str}' reports being triggered, but is not "
+                f"followed by quoted comma-separated numbers (e.g., 'True | \"1,2\"')."
+            )
+        elif invalid_input_str in ('False | "None"', 'False | "1, 2"'):
+            expected_error_pattern = re.escape(
+                f"Guardrail string '{invalid_input_str}' starts with 'False' but is not "
+                f"followed by 'None'. Expected format 'False | None'."
+            )
+        else:  # General format mismatch
+            expected_error_pattern = re.escape(
+                f"Guardrail string '{invalid_input_str}' does not match expected format "
+                f"'True | \"<comma-separated numbers>\"' or 'False | None'."
+            )
+
+        with pytest.raises(ValueError, match=expected_error_pattern):
+            EvaluationResult.parse_exact_string(invalid_input_str, num_guardrails)
 
 
 class TestAggregateResults:
