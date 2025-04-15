@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sklearn.metrics import f1_score, precision_score, recall_score
 from tabulate import tabulate
 import re
+import logging
 
 from ..file_system import jsonl_to_models, write_csv_results
 import logging
@@ -36,24 +37,38 @@ class EvaluationResult(BaseModel):
 
     @property
     def expected_exact_triggered(self) -> List[int] | None:
-        """Parses `expected_exact` and returns a binary vector if triggered"""
-        triggered, guardrails_str = self.parse_exact_string(
-            self.expected_exact, NUM_GUARDRAILS
-        )
-        if triggered:
-            return self.guardrail_str_to_vec(guardrails_str, NUM_GUARDRAILS)
-        else:
+        """Parses `expected_exact` and returns a binary vector if triggered."""
+        try:
+            triggered, guardrails_str = self.parse_exact_string(
+                self.expected_exact, NUM_GUARDRAILS
+            )
+            if triggered:
+                return self.guardrail_str_to_vec(guardrails_str, NUM_GUARDRAILS)
+            else:
+                return None
+        except ValueError as e:
+            logging.warning(
+                f'Failed to parse expected_exact="{self.expected_exact}" '
+                + f'for question="{self.question}": {e}. Treating as None.'
+            )
             return None
 
     @property
     def actual_exact_triggered(self) -> List[int] | None:
-        """Parses `actual_exact` and returns a binary vector if triggered"""
-        triggered, guardrails_str = self.parse_exact_string(
-            self.actual_exact, NUM_GUARDRAILS
-        )
-        if triggered:
-            return self.guardrail_str_to_vec(guardrails_str, NUM_GUARDRAILS)
-        else:
+        """Parses `actual_exact` and returns a binary vector if triggered."""
+        try:
+            triggered, guardrails_str = self.parse_exact_string(
+                self.actual_exact, NUM_GUARDRAILS
+            )
+            if triggered:
+                return self.guardrail_str_to_vec(guardrails_str, NUM_GUARDRAILS)
+            else:
+                return None
+        except ValueError as e:
+            logging.warning(
+                f'Failed to parse actual_exact="{self.actual_exact}" '
+                + f'for question="{self.question}": {e}. Treating as None.'
+            )
             return None
 
     @staticmethod
@@ -246,15 +261,28 @@ class AggregateResults:
         ).tolist()  # type: ignore
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        base_metrics = {
             "Evaluated": len(self.evaluation_results),
-            "Precision": self.precision(),
-            "Recall": self.recall(),
-            "True positives": self.true_positive,
-            "True negatives": self.true_negative,
-            "False positives": self.false_positive,
-            "False negatives": self.false_negative,
+            "Any-triggered Precision": self.precision(),
+            "Any-triggered Recall": self.recall(),
+            "Any-triggered True positives": self.true_positive,
+            "Any-triggered True negatives": self.true_negative,
+            "Any-triggered False positives": self.false_positive,
+            "Any-triggered False negatives": self.false_negative,
         }
+
+        # Per-guardrail metrics
+        precisions = self.precision_per_guardrail()
+        recalls = self.recall_per_guardrail()
+        f1s = self.f1_per_guardrail()
+
+        for i in range(NUM_GUARDRAILS):
+            guardrail_num = i + 1
+            base_metrics[f"Precision G{guardrail_num}"] = precisions[i]
+            base_metrics[f"Recall G{guardrail_num}"] = recalls[i]
+            base_metrics[f"F1 G{guardrail_num}"] = f1s[i]
+
+        return base_metrics
 
     def for_csv(self) -> list[dict[str, Any]]:
         return [{"property": k, "value": v} for k, v in self.to_dict().items()]

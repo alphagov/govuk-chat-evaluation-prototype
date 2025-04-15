@@ -1,6 +1,7 @@
 import csv
 import json
 import re
+import logging
 
 import numpy as np
 import pytest
@@ -175,6 +176,38 @@ class TestEvaluationResult:
         with pytest.raises(ValueError, match=expected_error_pattern):
             EvaluationResult.parse_exact_string(invalid_input_str, num_guardrails)
 
+    def test_exact_triggered_parsing_error(self, caplog):
+        """Test that properties return None and log warning on parsing error."""
+        invalid_format = "True | Invalid Format"
+        result = EvaluationResult(
+            question="Test Invalid Q",
+            expected_triggered=True,  # Overall trigger is True
+            actual_triggered=True,
+            expected_exact=invalid_format,
+            actual_exact=invalid_format,
+        )
+
+        caplog.set_level(logging.WARNING)
+        caplog.clear()
+
+        # Check expected_exact_triggered
+        assert result.expected_exact_triggered is None
+        assert len(caplog.records) == 1
+        assert "Failed to parse expected_exact" in caplog.text
+        assert invalid_format in caplog.text
+        assert result.question in caplog.text
+        assert "Treating as None" in caplog.text
+
+        caplog.clear()
+
+        # Check actual_exact_triggered
+        assert result.actual_exact_triggered is None
+        assert len(caplog.records) == 1
+        assert "Failed to parse actual_exact" in caplog.text
+        assert invalid_format in caplog.text
+        assert result.question in caplog.text
+        assert "Treating as None" in caplog.text
+
 
 class TestAggregateResults:
     @pytest.fixture
@@ -327,15 +360,38 @@ class TestAggregateResults:
 
     def test_to_dict(self, sample_results):
         aggregate = AggregateResults(sample_results)
-        assert aggregate.to_dict() == {
+        expected_dict = {
             "Evaluated": 9,
-            "Precision": aggregate.precision(),
-            "Recall": aggregate.recall(),
-            "True positives": 4,
-            "True negatives": 3,
-            "False positives": 1,
-            "False negatives": 1,
+            "Any-triggered Precision": aggregate.precision(),
+            "Any-triggered Recall": aggregate.recall(),
+            "Any-triggered True positives": 4,
+            "Any-triggered True negatives": 3,
+            "Any-triggered False positives": 1,
+            "Any-triggered False negatives": 1,
+            # Expected Per-Guardrail Metrics based on sample_results
+            "Precision G1": 0.8,  # TP=4, FP=1 -> 4/5
+            "Recall G1": 0.8,  # TP=4, FN=1 -> 4/5
+            "F1 G1": 0.8,
+            "Precision G2": 0.0,
+            "Recall G2": 0.0,
+            "F1 G2": 0.0,
+            "Precision G3": 0.8,  # TP=4, FP=1 -> 4/5
+            "Recall G3": 0.8,  # TP=4, FN=1 -> 4/5
+            "F1 G3": 0.8,
+            "Precision G4": 0.0,
+            "Recall G4": 0.0,
+            "F1 G4": 0.0,
+            "Precision G5": 0.0,
+            "Recall G5": 0.0,
+            "F1 G5": 0.0,
+            "Precision G6": 0.0,
+            "Recall G6": 0.0,
+            "F1 G6": 0.0,
+            "Precision G7": 0.0,
+            "Recall G7": 0.0,
+            "F1 G7": 0.0,
         }
+        assert aggregate.to_dict() == expected_dict
 
     def test_for_csv(self, sample_results):
         aggregate = AggregateResults(sample_results)
@@ -343,7 +399,6 @@ class TestAggregateResults:
             {"property": k, "value": v} for k, v in aggregate.to_dict().items()
         ]
         assert aggregate.for_csv() == expected_csv
-
 
     @pytest.fixture
     def per_guardrail_results(self) -> list[EvaluationResult]:
@@ -496,22 +551,36 @@ def mock_evaluation_data_file(tmp_path):
     file_path = tmp_path / "evaluation_data.jsonl"
     data = [
         {
-            "question": "Question",
+            "question": "Question 1",
             "expected_triggered": True,
             "actual_triggered": True,
-            "expected_exact": "True | None",
-            "actual_exact": "True | None",
+            "expected_exact": 'True | "1"',
+            "actual_exact": 'True | "1"',
         },
         {
-            "question": "Question",
+            "question": "Question 2",
             "expected_triggered": True,
             "actual_triggered": False,
-            "expected_exact": "True | None",
+            "expected_exact": 'True | "2"',
             "actual_exact": "False | None",
+        },
+        {
+            "question": "Question 3",
+            "expected_triggered": False,
+            "actual_triggered": False,
+            "expected_exact": "False | None",
+            "actual_exact": "False | None",
+        },
+        {
+            "question": "Question 4",
+            "expected_triggered": False,
+            "actual_triggered": True,
+            "expected_exact": "False | None",
+            "actual_exact": 'True | "3"',
         },
     ]
 
-    with open(tmp_path / "evaluation_data.jsonl", "w", encoding="utf8") as file:
+    with open(file_path, "w", encoding="utf8") as file:
         for item in data:
             file.write(json.dumps(item) + "\n")
 
