@@ -5,12 +5,14 @@ from typing import Any, List
 
 import numpy as np
 from pydantic import BaseModel
-from sklearn.metrics import precision_score, recall_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 from tabulate import tabulate
 import re
 
 from ..file_system import jsonl_to_models, write_csv_results
 import logging
+
+NUM_GUARDRAILS = 7
 
 
 class EvaluationResult(BaseModel):
@@ -35,18 +37,22 @@ class EvaluationResult(BaseModel):
     @property
     def expected_exact_triggered(self) -> List[int] | None:
         """Parses `expected_exact` and returns a binary vector if triggered"""
-        triggered, guardrails_str = self.parse_exact_string(self.expected_exact, 7)
+        triggered, guardrails_str = self.parse_exact_string(
+            self.expected_exact, NUM_GUARDRAILS
+        )
         if triggered:
-            return self.guardrail_str_to_vec(guardrails_str, 7)
+            return self.guardrail_str_to_vec(guardrails_str, NUM_GUARDRAILS)
         else:
             return None
 
     @property
     def actual_exact_triggered(self) -> List[int] | None:
         """Parses `actual_exact` and returns a binary vector if triggered"""
-        triggered, guardrails_str = self.parse_exact_string(self.actual_exact, 7)
+        triggered, guardrails_str = self.parse_exact_string(
+            self.actual_exact, NUM_GUARDRAILS
+        )
         if triggered:
-            return self.guardrail_str_to_vec(guardrails_str, 7)
+            return self.guardrail_str_to_vec(guardrails_str, NUM_GUARDRAILS)
         else:
             return None
 
@@ -164,6 +170,33 @@ class AggregateResults:
         expected, actual = zip(*pairs_list)
         return list(expected), list(actual)
 
+    @cached_property
+    def _expected_actual_vectors(self) -> tuple[List[List[int]], List[List[int]]]:
+        """
+        Generates lists of expected and actual binary vectors for per-guardrail evaluation.
+
+        Vectors represent triggered guardrails. If a result indicates no trigger
+        (expected_triggered or actual_triggered is False), a zero vector is used.
+        """
+        expected_vectors = []
+        actual_vectors = []
+        zero_vector = [0] * NUM_GUARDRAILS
+
+        for result in self.evaluation_results:
+            expected_vec = result.expected_exact_triggered
+            actual_vec = result.actual_exact_triggered
+
+            expected_vectors.append(
+                expected_vec if expected_vec is not None else zero_vector
+            )
+            actual_vectors.append(actual_vec if actual_vec is not None else zero_vector)
+
+        # Handle the edge case where there are no results to evaluate
+        if not expected_vectors:
+            return [], []
+
+        return expected_vectors, actual_vectors
+
     def precision(self) -> float:
         return precision_score(
             *self._expected_actual_lists,
@@ -175,6 +208,42 @@ class AggregateResults:
             *self._expected_actual_lists,
             zero_division=np.nan,  # type: ignore
         )
+
+    def precision_per_guardrail(self) -> List[float]:
+        """Calculates precision for each guardrail individually."""
+        expected_vectors, actual_vectors = self._expected_actual_vectors
+        if not expected_vectors:  # Avoid calling score with empty lists
+            return [np.nan] * NUM_GUARDRAILS
+        return precision_score(
+            expected_vectors,
+            actual_vectors,
+            average=None,  # type: ignore
+            zero_division=0,  # type: ignore
+        ).tolist()  # type: ignore
+
+    def recall_per_guardrail(self) -> List[float]:
+        """Calculates recall for each guardrail individually."""
+        expected_vectors, actual_vectors = self._expected_actual_vectors
+        if not expected_vectors:
+            return [np.nan] * NUM_GUARDRAILS
+        return recall_score(
+            expected_vectors,
+            actual_vectors,
+            average=None,  # type: ignore
+            zero_division=0,  # type: ignore
+        ).tolist()  # type: ignore
+
+    def f1_per_guardrail(self) -> List[float]:
+        """Calculates F1 score for each guardrail individually."""
+        expected_vectors, actual_vectors = self._expected_actual_vectors
+        if not expected_vectors:
+            return [np.nan] * NUM_GUARDRAILS
+        return f1_score(
+            expected_vectors,
+            actual_vectors,
+            average=None,  # type: ignore
+            zero_division=0,  # type: ignore
+        ).tolist()  # type: ignore
 
     def to_dict(self) -> dict[str, Any]:
         return {

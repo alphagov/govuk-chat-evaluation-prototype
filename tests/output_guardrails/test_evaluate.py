@@ -345,6 +345,152 @@ class TestAggregateResults:
         assert aggregate.for_csv() == expected_csv
 
 
+    @pytest.fixture
+    def per_guardrail_results(self) -> list[EvaluationResult]:
+        """Fixture providing sample results for per-guardrail testing."""
+        return [
+            # Case 1: Perfect match
+            EvaluationResult(
+                question="Q1",
+                expected_triggered=True,
+                actual_triggered=True,
+                expected_exact='True | "1, 3"',
+                actual_exact='True | "1, 3"',
+            ),
+            # Case 2: FP (predicted 4)
+            EvaluationResult(
+                question="Q2",
+                expected_triggered=True,
+                actual_triggered=True,
+                expected_exact='True | "2"',
+                actual_exact='True | "2, 4"',  # Predicts 4 incorrectly
+            ),
+            # Case 3: FN (missed 4)
+            EvaluationResult(
+                question="Q3",
+                expected_triggered=True,
+                actual_triggered=True,
+                expected_exact='True | "4, 5"',
+                actual_exact='True | "5"',  # Misses 4
+            ),
+            # Case 4: Both False
+            EvaluationResult(
+                question="Q4",
+                expected_triggered=False,
+                actual_triggered=False,
+                expected_exact="False | None",
+                actual_exact="False | None",
+            ),
+            # Case 5: Actual triggered when expected False (FP for guardrail 6)
+            EvaluationResult(
+                question="Q5",
+                expected_triggered=False,
+                actual_triggered=True,
+                expected_exact="False | None",
+                actual_exact='True | "6"',
+            ),
+            # Case 6: Expected triggered when actual False (FN for guardrail 7)
+            EvaluationResult(
+                question="Q6",
+                expected_triggered=True,
+                actual_triggered=False,
+                expected_exact='True | "7"',
+                actual_exact="False | None",
+            ),
+        ]
+
+    def test_expected_actual_vectors(self, per_guardrail_results):
+        aggregate = AggregateResults(per_guardrail_results)
+        expected_vectors, actual_vectors = aggregate._expected_actual_vectors
+
+        # Based on per_guardrail_results fixture
+        expected_ground_truth = [
+            [1, 0, 1, 0, 0, 0, 0],  # Q1: "1, 3"
+            [0, 1, 0, 0, 0, 0, 0],  # Q2: "2"
+            [0, 0, 0, 1, 1, 0, 0],  # Q3: "4, 5"
+            [0, 0, 0, 0, 0, 0, 0],  # Q4: False
+            [0, 0, 0, 0, 0, 0, 0],  # Q5: False
+            [0, 0, 0, 0, 0, 0, 1],  # Q6: "7"
+        ]
+        actual_predictions = [
+            [1, 0, 1, 0, 0, 0, 0],  # Q1: "1, 3"
+            [0, 1, 0, 1, 0, 0, 0],  # Q2: "2, 4"
+            [0, 0, 0, 0, 1, 0, 0],  # Q3: "5"
+            [0, 0, 0, 0, 0, 0, 0],  # Q4: False
+            [0, 0, 0, 0, 0, 1, 0],  # Q5: "6"
+            [0, 0, 0, 0, 0, 0, 0],  # Q6: False
+        ]
+
+        assert expected_vectors == expected_ground_truth
+        assert actual_vectors == actual_predictions
+
+    def test_expected_actual_vectors_empty(self):
+        aggregate = AggregateResults([])
+        expected_vectors, actual_vectors = aggregate._expected_actual_vectors
+        assert expected_vectors == []
+        assert actual_vectors == []
+
+    def test_precision_per_guardrail(self, per_guardrail_results):
+        aggregate = AggregateResults(per_guardrail_results)
+        precision = aggregate.precision_per_guardrail()
+        # Expected precision based on _expected_actual_vectors:
+        # G1: TP=1, FP=0 -> P=1/(1+0)=1
+        # G2: TP=1, FP=0 -> P=1/(1+0)=1
+        # G3: TP=1, FP=0 -> P=1/(1+0)=1
+        # G4: TP=0, FP=1 -> P=0/(0+1)=0
+        # G5: TP=1, FP=0 -> P=1/(1+0)=1
+        # G6: TP=0, FP=1 -> P=0/(0+1)=0
+        # G7: TP=0, FP=0 -> P=0/(0+0)=0 (zero_division=0)
+        expected_precision = [1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0]
+        assert precision == expected_precision
+
+    def test_precision_per_guardrail_empty(self):
+        aggregate = AggregateResults([])
+        precision = aggregate.precision_per_guardrail()
+        assert all(np.isnan(p) for p in precision)
+        assert len(precision) == 7
+
+    def test_recall_per_guardrail(self, per_guardrail_results):
+        aggregate = AggregateResults(per_guardrail_results)
+        recall = aggregate.recall_per_guardrail()
+        # Expected recall based on _expected_actual_vectors:
+        # G1: TP=1, FN=0 -> R=1/(1+0)=1
+        # G2: TP=1, FN=0 -> R=1/(1+0)=1
+        # G3: TP=1, FN=0 -> R=1/(1+0)=1
+        # G4: TP=0, FN=1 -> R=0/(0+1)=0
+        # G5: TP=1, FN=0 -> R=1/(1+0)=1
+        # G6: TP=0, FN=0 -> R=0/(0+0)=0 (zero_division=0)
+        # G7: TP=0, FN=1 -> R=0/(0+1)=0
+        expected_recall = [1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0]
+        assert recall == expected_recall
+
+    def test_recall_per_guardrail_empty(self):
+        aggregate = AggregateResults([])
+        recall = aggregate.recall_per_guardrail()
+        assert all(np.isnan(r) for r in recall)
+        assert len(recall) == 7
+
+    def test_f1_per_guardrail(self, per_guardrail_results):
+        aggregate = AggregateResults(per_guardrail_results)
+        f1 = aggregate.f1_per_guardrail()
+        # Expected F1 based on precision and recall above:
+        # G1: P=1, R=1 -> F1=2*(1*1)/(1+1)=1
+        # G2: P=1, R=1 -> F1=1
+        # G3: P=1, R=1 -> F1=1
+        # G4: P=0, R=0 -> F1=0 (zero_division=0)
+        # G5: P=1, R=1 -> F1=1
+        # G6: P=0, R=0 -> F1=0
+        # G7: P=0, R=0 -> F1=0
+        expected_f1 = [1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0]
+        assert f1 == expected_f1
+
+    def test_f1_per_guardrail_empty(self):
+        aggregate = AggregateResults([])
+        f1 = aggregate.f1_per_guardrail()
+        assert all(np.isnan(f) for f in f1)
+        assert len(f1) == 7
+
+
 @pytest.fixture
 def mock_evaluation_data_file(tmp_path):
     file_path = tmp_path / "evaluation_data.jsonl"
