@@ -27,15 +27,9 @@ def run_rake_task_mock(mocker):
     return mock
 
 
-def test_generate_models_to_evaluation_models_returns_evaluation_results(
+def test_generate_inputs_to_evaluation_results_returns_evaluation_results(
     run_rake_task_mock,
 ):
-    def result_per_question(_, env):
-        if env["INPUT"] == "Question 1":
-            return {"triggered": True, "llm_guardrail_result": 'True | "1, 4, 7"'}
-        else:
-            return {"triggered": False, "llm_guardrail_result": "False | None"}
-
     generate_inputs = [
         GenerateInput(
             question="Question 1",
@@ -67,7 +61,7 @@ def test_generate_models_to_evaluation_models_returns_evaluation_results(
     )
 
 
-def test_generate_models_to_evaluation_models_runs_expected_rake_task(
+def test_generate_inputs_to_evaluation_results_runs_expected_rake_task(
     run_rake_task_mock,
 ):
     generate_inputs = [

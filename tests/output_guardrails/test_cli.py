@@ -38,7 +38,7 @@ class TestConfig:
 def mock_config_file(tmp_path, mock_input_data):
     """Write a config file as an input for testing"""
     data = {
-        "what": "Testing Ooutput Guardrail evaluations",
+        "what": "Testing Output Guardrail evaluations",
         "guardrail_type": "answer_guardrails",
         "generate": True,
         "provider": "claude",
