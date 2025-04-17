@@ -76,11 +76,13 @@ class TestConfig:
     def test_get_metric_instances(self, mock_input_data, mocker):
         mock_faithfulness = mocker.MagicMock(spec=FaithfulnessMetric)
         mock_bias = mocker.MagicMock(spec=BiasMetric)
-    
+
         # Mock the to_metric_instance method to return the correct mock types
-        mock_to_metric_instance = mocker.patch("govuk_chat_evaluation.rag_answers.data_models.MetricConfig.to_metric_instance",
-                                      side_effect=[mock_faithfulness, mock_bias] )
-        
+        mock_to_metric_instance = mocker.patch(
+            "govuk_chat_evaluation.rag_answers.data_models.MetricConfig.to_metric_instance",
+            side_effect=[mock_faithfulness, mock_bias],
+        )
+
         config_dict = {
             "what": "Test",
             "generate": False,
@@ -186,16 +188,16 @@ def test_get_metric_instance_valid(config_dict, expected_class, mocker):
     mock_llm_judge = mocker.MagicMock()
     mocker.patch(
         "govuk_chat_evaluation.rag_answers.data_models.LLMJudgeModelConfig.instantiate_llm_judge",
-        return_value=mock_llm_judge
+        return_value=mock_llm_judge,
     )
-    
+
     # Create a mock metric of the expected class
     mock_metric = mocker.MagicMock(spec=expected_class)
     mocker.patch.object(expected_class, "__new__", return_value=mock_metric)
-    
+
     metric_config = MetricConfig(**config_dict)
     metric = metric_config.to_metric_instance()
-    
+
     assert metric is not None
 
 

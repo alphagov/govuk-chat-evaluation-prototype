@@ -116,6 +116,7 @@ def mock_run_rake_task(mocker):
         },
     )
 
+
 @pytest.fixture(autouse=True)
 def fake_evaluation_results():
     return [
@@ -132,11 +133,12 @@ def fake_evaluation_results():
                     score=1.0,
                     reason="Perfect match",
                     cost=0.0,
-                    success=True
+                    success=True,
                 )
-            ]
+            ],
         )
     ]
+
 
 @pytest.fixture(autouse=True)
 def mock_convert_deepeval_output_to_evaluation_results(mocker):
@@ -204,39 +206,39 @@ def mock_output_directory(mock_project_root):
 
 @pytest.mark.usefixtures("mock_output_directory")
 def test_main_creates_output_files(
-    mock_output_directory,
-    mock_config_file,
-    mocker,
-    fake_evaluation_results
+    mock_output_directory, mock_config_file, mocker, fake_evaluation_results
 ):
     # Mock the evaluation process to avoid OpenAI API calls
-    mocker.patch("govuk_chat_evaluation.rag_answers.evaluate.run_deepeval_evaluation", return_value=[])
+    mocker.patch(
+        "govuk_chat_evaluation.rag_answers.evaluate.run_deepeval_evaluation",
+        return_value=[],
+    )
     mocker.patch(
         "govuk_chat_evaluation.rag_answers.evaluate.convert_deepeval_output_to_evaluation_results",
-        return_value=fake_evaluation_results
+        return_value=fake_evaluation_results,
     )
-    
+
     runner = CliRunner()
     result = runner.invoke(main, [mock_config_file])
-    
+
     assert result.exit_code == 0, result.output
     result_summary = mock_output_directory / "results_summary.csv"
     assert result_summary.exists()
 
 
 def test_main_generates_results(
-    mock_output_directory, 
-    mock_config_file, 
-    mock_data_generation,
-    mocker
+    mock_output_directory, mock_config_file, mock_data_generation, mocker
 ):
-    mocker.patch("govuk_chat_evaluation.rag_answers.evaluate.run_deepeval_evaluation", return_value=[])
-    
+    mocker.patch(
+        "govuk_chat_evaluation.rag_answers.evaluate.run_deepeval_evaluation",
+        return_value=[],
+    )
+
     runner = CliRunner()
-    result = runner.invoke(main, [mock_config_file, "--generate"]) # type: ignore[arg-type]
-    
+    result = runner.invoke(main, [mock_config_file, "--generate"])  # type: ignore[arg-type]
+
     generated_file = mock_output_directory / "generated.jsonl"
-    
+
     assert result.exit_code == 0, result.output
     mock_data_generation.assert_called_once()
     assert generated_file.exists()
@@ -245,10 +247,13 @@ def test_main_generates_results(
 @pytest.mark.usefixtures("mock_output_directory")
 def test_main_doesnt_generate_results(mock_config_file, mock_data_generation, mocker):
     # Mock any OpenAI dependent functions
-    mocker.patch("govuk_chat_evaluation.rag_answers.evaluate.run_deepeval_evaluation", return_value=[])
-    
+    mocker.patch(
+        "govuk_chat_evaluation.rag_answers.evaluate.run_deepeval_evaluation",
+        return_value=[],
+    )
+
     runner = CliRunner()
     result = runner.invoke(main, [mock_config_file, "--no-generate"])
-    
+
     assert result.exit_code == 0, result.output
     mock_data_generation.assert_not_called()
