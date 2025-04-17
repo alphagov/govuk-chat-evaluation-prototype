@@ -29,7 +29,6 @@ def generate_inputs_to_evaluation_test_cases(
         retrieved_contexts = result.get("retrieved_context", [])
         structured_context = [StructuredContext(**ctx) for ctx in retrieved_contexts]
 
-
         # TODO: this will need more data fields and may well want to validate
         # aspects of the returned data rather than just using the JSON directly
         return EvaluationTestCase(

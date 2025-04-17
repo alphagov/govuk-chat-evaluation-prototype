@@ -14,6 +14,7 @@ from govuk_chat_evaluation.rag_answers.data_models import (
 
 # ─── Fixtures
 
+
 @pytest.fixture(autouse=True)
 def mock_config_file(tmp_path, mock_input_data):
     """Create a config YAML file for CLI input"""
@@ -58,9 +59,9 @@ def mock_input_data(tmp_path):
                 "description": "VAT overview",
                 "html_content": "<p>Some HTML about VAT</p>",
                 "exact_path": "https://gov.uk/vat",
-                "base_path": "https://gov.uk"
+                "base_path": "https://gov.uk",
             }
-        ]
+        ],
     }
 
     file_path = tmp_path / "mock_input.jsonl"
@@ -78,12 +79,15 @@ def mock_data_generation(mocker):
         description="VAT overview",
         html_content="<p>Some HTML about VAT</p>",
         exact_path="https://gov.uk/vat",
-        base_path="https://gov.uk"
+        base_path="https://gov.uk",
     )
 
     return_value = [
         EvaluationTestCase(
-            question="Question", ideal_answer="An answer", llm_answer="An answer", retrieved_context=[structured_context]
+            question="Question",
+            ideal_answer="An answer",
+            llm_answer="An answer",
+            retrieved_context=[structured_context],
         )
     ] * 2
 
@@ -176,6 +180,7 @@ def mock_output_directory(mock_project_root):
 
 # ─── Main CLI Tests
 
+
 @pytest.mark.usefixtures("mock_output_directory")
 def test_main_creates_output_files(mock_output_directory, mock_config_file):
     runner = CliRunner()
@@ -188,9 +193,11 @@ def test_main_creates_output_files(mock_output_directory, mock_config_file):
     assert "mock_metric" in result_summary.read_text()
 
 
-def test_main_generates_results(mock_output_directory, mock_config_file, mock_data_generation):
+def test_main_generates_results(
+    mock_output_directory, mock_config_file, mock_data_generation
+):
     runner = CliRunner()
-    result = runner.invoke(main, [mock_config_file, "--generate"]) # type: ignore[arg-type]
+    result = runner.invoke(main, [mock_config_file, "--generate"])  # type: ignore[arg-type]
 
     generated_file = mock_output_directory / "generated.jsonl"
     assert result.exit_code == 0, result.output

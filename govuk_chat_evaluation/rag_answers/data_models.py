@@ -17,6 +17,7 @@ from ..config import BaseConfig
 
 # ----- Input data models -----
 
+
 class StructuredContext(BaseModel):
     title: str
     heading_hierarchy: list[str]
@@ -32,7 +33,8 @@ class StructuredContext(BaseModel):
             f"{' > '.join(self.heading_hierarchy)}\n"
             f"{self.description}\n\n"
             f"{self.html_content}"
-        )    
+        )
+
 
 class GenerateInput(BaseModel):
     question: str
@@ -47,10 +49,12 @@ class EvaluationTestCase(GenerateInput):
     def to_llm_test_case(self) -> LLMTestCase:
         return LLMTestCase(
             input=self.question,
-            name = str(uuid.uuid4()),
+            name=str(uuid.uuid4()),
             expected_output=self.ideal_answer,
             actual_output=self.llm_answer,
-            retrieval_context=[ctx.to_flattened_string() for ctx in self.retrieved_context]
+            retrieval_context=[
+                ctx.to_flattened_string() for ctx in self.retrieved_context
+            ],
         )
 
 
@@ -60,6 +64,7 @@ class MetricName(str, Enum):
     BIAS = "bias"
     # others to add
 
+
 class LLMJudgeModel(str, Enum):
     GPT_4O_MINI = "gpt-4o-mini"
     GPT_4O = "gpt-4o"
@@ -68,25 +73,34 @@ class LLMJudgeModel(str, Enum):
     GEMINI_15_PRO = "gemini-1.5-pro-002"
     GEMINI_15_FLASH = "gemini-1.5-flash-002"
 
+
 class LLMJudgeModelConfig(BaseModel):
     model: LLMJudgeModel
     temperature: float = 0.0
-    
+
     def instantiate_llm_judge(self):
         """Return the LLM judge model instance."""
         match self.model:
             case LLMJudgeModel.AMAZON_NOVA_MICRO_1:
-                raise NotImplementedError(f"Judge model {self.model} instantiation not implemented.")
+                raise NotImplementedError(
+                    f"Judge model {self.model} instantiation not implemented."
+                )
                 # Placeholder for actual class instance - e.g., CustomAmazonNovaJudge(model_name=self.model.value, temperature=self.temperature)
             case LLMJudgeModel.AMAZON_NOVA_PRO_1:
-                raise NotImplementedError(f"Judge model {self.model} instantiation not implemented.")
+                raise NotImplementedError(
+                    f"Judge model {self.model} instantiation not implemented."
+                )
             case LLMJudgeModel.GEMINI_15_PRO:
-                raise NotImplementedError(f"Judge model {self.model} instantiation not implemented.")
+                raise NotImplementedError(
+                    f"Judge model {self.model} instantiation not implemented."
+                )
             case LLMJudgeModel.GEMINI_15_FLASH:
-                raise NotImplementedError(f"Judge model {self.model} instantiation not implemented.")
+                raise NotImplementedError(
+                    f"Judge model {self.model} instantiation not implemented."
+                )
             case LLMJudgeModel.GPT_4O_MINI | LLMJudgeModel.GPT_4O:
                 return GPTModel(model=self.model.value, temperature=self.temperature)
-    
+
 
 class MetricConfig(BaseModel):
     name: MetricName
@@ -117,6 +131,7 @@ class MetricConfig(BaseModel):
 
 # ----- Configuration models -----
 
+
 class Config(BaseConfig):
     what: BaseConfig.GenericFields.what
     generate: BaseConfig.GenericFields.generate
@@ -128,13 +143,14 @@ class Config(BaseConfig):
     @model_validator(mode="after")
     def run_validatons(self):
         return self._validate_fields_required_for_generate("provider")
-    
+
     def metric_instances(self):
         """Return the list of runtime metric objects for evaluation."""
         return [metric.to_metric_instance() for metric in self.metrics]  # type: ignore
 
 
 # ----- Output data models -----
+
 
 @dataclass
 class RunMetricOutput:
@@ -144,6 +160,7 @@ class RunMetricOutput:
     cost: float | None = None
     reason: str | None = None
     success: bool | None = None
+
 
 @dataclass
 class EvaluationResult:

@@ -9,8 +9,10 @@ from .data_models import EvaluationResult, RunMetricOutput
 from ..timing import print_task_duration
 
 
-def run_deepeval_evaluation(cases: list[LLMTestCase], metrics: list[BaseMetric], n_runs: int = 1, **kwargs) -> list[list[TestResult]]:
-    """"
+def run_deepeval_evaluation(
+    cases: list[LLMTestCase], metrics: list[BaseMetric], n_runs: int = 1, **kwargs
+) -> list[list[TestResult]]:
+    """ "
     Run the Deepval evaluation on the given models and metrics
 
     Args:
@@ -30,23 +32,28 @@ def run_deepeval_evaluation(cases: list[LLMTestCase], metrics: list[BaseMetric],
         all_evaluation_runs = []
 
         for i in range(n_runs):
-            print(f"Running evaluation iteration {i+1}/{n_runs}...")
+            print(f"Running evaluation iteration {i + 1}/{n_runs}...")
 
             evaluation_run = deepeval_evaluate(
-                test_cases=cast(list[LLMTestCase | MLLMTestCase], cases), # hint to type checker: this is a List[LLMTestCase | MLLMTestCase], even though it's just List[LLMTestCase]
+                test_cases=cast(
+                    list[LLMTestCase | MLLMTestCase], cases
+                ),  # hint to type checker: this is a List[LLMTestCase | MLLMTestCase], even though it's just List[LLMTestCase]
                 metrics=metrics,
-                **kwargs,  # pass additional arguments dynamically 
+                **kwargs,  # pass additional arguments dynamically
             )
 
-            all_evaluation_runs.append(evaluation_run.test_results)  # Store results per run
+            all_evaluation_runs.append(
+                evaluation_run.test_results
+            )  # Store results per run
 
     print("Deepval evaluation complete")
-    
+
     return all_evaluation_runs
 
 
-
-def convert_deepeval_output_to_evaluation_results(all_runs: list[list[TestResult]]) -> list[EvaluationResult] | None:
+def convert_deepeval_output_to_evaluation_results(
+    all_runs: list[list[TestResult]],
+) -> list[EvaluationResult] | None:
     """
     Convert the results from DeepEval into a more structured format.
 
@@ -68,7 +75,7 @@ def convert_deepeval_output_to_evaluation_results(all_runs: list[list[TestResult
         [
             EvaluationResult(
                 name='input_1',
-                input='input_1',    
+                input='input_1',
                 actual_output='actual_output_1',
                 expected_output='expected_output_1',
                 retrieval_context=['context_1'],
@@ -103,7 +110,6 @@ def convert_deepeval_output_to_evaluation_results(all_runs: list[list[TestResult
     """
     grouped_by_input_and_run = defaultdict(lambda: defaultdict(list))
 
-
     for run_idx, run in enumerate(all_runs):  # all_runs = List[List[TestResult]]
         for result in run:
             grouped_by_input_and_run[result.name][run_idx].append(result)
@@ -114,9 +120,9 @@ def convert_deepeval_output_to_evaluation_results(all_runs: list[list[TestResult
         evaluation_outputs: list[RunMetricOutput] = []
 
         # taking the first TestResult for each input to extract static info
-        sample_result = run_results[0][0] 
+        sample_result = run_results[0][0]
 
-        for run_idx, results in run_results.items():        
+        for run_idx, results in run_results.items():
             for result in results:
                 for metric_data in result.metrics_data:
                     evaluation_outputs.append(
@@ -142,5 +148,3 @@ def convert_deepeval_output_to_evaluation_results(all_runs: list[list[TestResult
         )
 
     return aggregated_results
-
-

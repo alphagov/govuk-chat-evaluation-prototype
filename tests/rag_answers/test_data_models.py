@@ -7,12 +7,12 @@ from deepeval.metrics import (
     BiasMetric,
 )
 from govuk_chat_evaluation.rag_answers.data_models import (
-    EvaluationTestCase, 
-    MetricConfig, 
-    Config, 
-    StructuredContext, 
-    RunMetricOutput, 
-    EvaluationResult
+    EvaluationTestCase,
+    MetricConfig,
+    Config,
+    StructuredContext,
+    RunMetricOutput,
+    EvaluationResult,
 )
 
 
@@ -30,9 +30,9 @@ def mock_input_data(tmp_path):
                 "description": "VAT overview",
                 "html_content": "<p>Some HTML about VAT</p>",
                 "exact_path": "https://gov.uk/vat",
-                "base_path": "https://gov.uk"
+                "base_path": "https://gov.uk",
             }
-        ]
+        ],
     }
 
     file_path = tmp_path / "mock_input.jsonl"
@@ -51,7 +51,7 @@ class TestConfig:
                 provider=None,
                 input_path=mock_input_data,
                 metrics=[],
-                n_runs=1
+                n_runs=1,
             )
 
         # These should not raise
@@ -61,7 +61,7 @@ class TestConfig:
             provider=None,
             input_path=mock_input_data,
             metrics=[],
-            n_runs=1
+            n_runs=1,
         )
 
         Config(
@@ -70,20 +70,30 @@ class TestConfig:
             provider="openai",
             input_path=mock_input_data,
             metrics=[],
-            n_runs=1
+            n_runs=1,
         )
 
     def test_get_metric_instances(self, mock_input_data):
         config_dict = {
-            "what":"Test",
-            "generate":False,
-            "provider":None,
-            "input_path":mock_input_data,
+            "what": "Test",
+            "generate": False,
+            "provider": None,
+            "input_path": mock_input_data,
             "metrics": [
-                {"name": "faithfulness", "threshold": 0.8, "model": "gpt-4o", "temperature": 0.0},
-                {"name": "bias", "threshold": 0.5, "model": "gpt-4o", "temperature": 0.5}
+                {
+                    "name": "faithfulness",
+                    "threshold": 0.8,
+                    "model": "gpt-4o",
+                    "temperature": 0.0,
+                },
+                {
+                    "name": "bias",
+                    "threshold": 0.5,
+                    "model": "gpt-4o",
+                    "temperature": 0.5,
+                },
             ],
-            "n_runs": 3
+            "n_runs": 3,
         }
 
         evaluation_config = Config(**config_dict)
@@ -100,7 +110,6 @@ class TestConfig:
         assert evaluation_config.n_runs == 3
 
 
-
 class TestEvaluationTestCase:
     def test_to_llm_test_case(self):
         structured_context = StructuredContext(
@@ -109,14 +118,14 @@ class TestEvaluationTestCase:
             description="VAT overview",
             html_content="<p>Some HTML about VAT</p>",
             exact_path="https://gov.uk/vat",
-            base_path="https://gov.uk"
+            base_path="https://gov.uk",
         )
-        
+
         evaluation_test_case = EvaluationTestCase(
-            question="How are you?", 
-            ideal_answer="Great", 
-            llm_answer="Fine", 
-            retrieved_context=[structured_context]
+            question="How are you?",
+            ideal_answer="Great",
+            llm_answer="Fine",
+            retrieved_context=[structured_context],
         )
 
         llm_test_case = evaluation_test_case.to_llm_test_case()
@@ -130,8 +139,9 @@ class TestEvaluationTestCase:
 
         assert isinstance(llm_test_case.retrieval_context, list)
         assert all(isinstance(chunk, str) for chunk in llm_test_case.retrieval_context)
-        assert "VAT" in llm_test_case.retrieval_context[0]  
+        assert "VAT" in llm_test_case.retrieval_context[0]
         assert "Some HTML about VAT" in llm_test_case.retrieval_context[0]
+
 
 class TestStructuredContext:
     def test_to_flattened_string(self):
@@ -141,7 +151,7 @@ class TestStructuredContext:
             description="VAT overview",
             html_content="<p>Some HTML about VAT</p>",
             exact_path="https://gov.uk/vat",
-            base_path="https://gov.uk"
+            base_path="https://gov.uk",
         )
 
         flattened_string = structured_context.to_flattened_string()
@@ -152,12 +162,24 @@ class TestStructuredContext:
         assert "VAT overview" in flattened_string
         assert "<p>Some HTML about VAT</p>" in flattened_string
 
+
 @pytest.mark.parametrize(
     "config_dict, expected_class",
     [
-        ({"name": "faithfulness", "threshold": 0.8, "model": "gpt-4o", "temperature": 0.0}, FaithfulnessMetric),
-        ({"name": "bias", "threshold": 0.5, "model": "gpt-4o", "temperature": 0.0}, BiasMetric),
-    ]
+        (
+            {
+                "name": "faithfulness",
+                "threshold": 0.8,
+                "model": "gpt-4o",
+                "temperature": 0.0,
+            },
+            FaithfulnessMetric,
+        ),
+        (
+            {"name": "bias", "threshold": 0.5, "model": "gpt-4o", "temperature": 0.0},
+            BiasMetric,
+        ),
+    ],
 )
 def test_get_metric_instance_valid(config_dict, expected_class):
     metric_config = MetricConfig(**config_dict)
@@ -166,7 +188,12 @@ def test_get_metric_instance_valid(config_dict, expected_class):
 
 
 def test_get_metric_instance_invalid_enum():
-    config_dict = {"name": "does_not_exist", "threshold": 0.5, "model": "gpt-4o", "temperature": 0.0}
+    config_dict = {
+        "name": "does_not_exist",
+        "threshold": 0.5,
+        "model": "gpt-4o",
+        "temperature": 0.0,
+    }
 
     with pytest.raises(ValidationError) as exception_info:
         MetricConfig(**config_dict)
@@ -175,16 +202,16 @@ def test_get_metric_instance_invalid_enum():
     assert "does_not_exist" in str(exception_info.value)
 
 
-
 def test_run_metric_output_defaults():
     rmo = RunMetricOutput(run=1, metric="faithfulness", score=0.87)
-    
+
     assert rmo.run == 1
     assert rmo.metric == "faithfulness"
     assert rmo.score == 0.87
     assert rmo.cost is None
     assert rmo.reason is None
     assert rmo.success is None
+
 
 def test_evaluation_result_basic_init():
     rmo = RunMetricOutput(run=1, metric="bias", score=0.9)
@@ -228,5 +255,5 @@ def test_evaluate_successful_runs():
     )
 
     successful_runs = evaluate_successful_runs(evaluation)
-    
+
     assert successful_runs == [1, 3]

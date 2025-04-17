@@ -6,7 +6,10 @@ import pandas as pd
 
 from deepeval.metrics import BaseMetric
 
-from .deepeval_evaluate import run_deepeval_evaluation, convert_deepeval_output_to_evaluation_results
+from .deepeval_evaluate import (
+    run_deepeval_evaluation,
+    convert_deepeval_output_to_evaluation_results,
+)
 from ..file_system import jsonl_to_models
 from .data_models import EvaluationTestCase, Config, EvaluationResult
 
@@ -20,11 +23,10 @@ DEEPEVAL_EVAL_PARAMETERS = {
     "ignore_errors": True,
 }
 
+
 # would expect we need to pass config object through if that has metrics configuration
 def evaluate_and_output_results(
-    output_dir: Path, 
-    evaluation_data_path: Path, 
-    evaluation_config: Config
+    output_dir: Path, evaluation_data_path: Path, evaluation_config: Config
 ):
     """
     Function to run the evaluation, aggregate the results, and export them to files.
@@ -43,11 +45,13 @@ def evaluate_and_output_results(
         cases=[model.to_llm_test_case() for model in models],
         metrics=cast(list[BaseMetric], evaluation_config.metric_instances()),
         n_runs=evaluation_config.n_runs,
-        **DEEPEVAL_EVAL_PARAMETERS
+        **DEEPEVAL_EVAL_PARAMETERS,
     )
 
-    evaluation_results = convert_deepeval_output_to_evaluation_results(evaluation_outputs)
-    
+    evaluation_results = convert_deepeval_output_to_evaluation_results(
+        evaluation_outputs
+    )
+
     aggregation = AggregatedResults(evaluation_results)
 
     # calculate aggregated results and exports results to CSV files
@@ -57,12 +61,8 @@ def evaluate_and_output_results(
     print(aggregation.summary)
 
 
-
 class AggregatedResults:
-    def __init__(
-        self,
-        evaluation_results: list[EvaluationResult] | None
-    ):
+    def __init__(self, evaluation_results: list[EvaluationResult] | None):
         """
         Args:
             evaluation_results: List of TestResult objects.
@@ -82,16 +82,23 @@ class AggregatedResults:
 
         for eval_result in self.evaluation_results or []:
             for evaluation_output in eval_result.run_metric_outputs:
-                data.append({
-                    "name": eval_result.name,
-                    "input": eval_result.input,
-                    "metric": evaluation_output.metric,
-                    "score": evaluation_output.score,
-                })
+                data.append(
+                    {
+                        "name": eval_result.name,
+                        "input": eval_result.input,
+                        "metric": evaluation_output.metric,
+                        "score": evaluation_output.score,
+                    }
+                )
 
         df = pd.DataFrame(data)
 
-        return df.groupby(["name", "input", "metric"])["score"].agg(['mean', 'std']).unstack().reset_index()
+        return (
+            df.groupby(["name", "input", "metric"])["score"]
+            .agg(["mean", "std"])
+            .unstack()
+            .reset_index()
+        )
 
     @cached_property
     def summary(self) -> pd.DataFrame:
@@ -104,11 +111,13 @@ class AggregatedResults:
 
         mean_df = self.per_input_metric_averages["mean"]
 
-        return pd.DataFrame({
-            "median": mean_df.median(),
-            "mean": mean_df.mean(),
-            "std": mean_df.std(),
-        })
+        return pd.DataFrame(
+            {
+                "median": mean_df.median(),
+                "mean": mean_df.mean(),
+                "std": mean_df.std(),
+            }
+        )
 
     def export_to_csvs(self, output_dir: Path) -> None:
         """
@@ -119,4 +128,4 @@ class AggregatedResults:
         """
         pd.DataFrame(self.evaluation_results).to_csv(output_dir / "tidy_results.csv")
         self.per_input_metric_averages.to_csv(output_dir / "results_per_input.csv")
-        self.summary.to_csv(output_dir / f"results_summary.csv")
+        self.summary.to_csv(output_dir / "results_summary.csv")
