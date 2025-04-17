@@ -8,13 +8,17 @@ def mock_input_data(mock_project_root):
     data = [
         {
             "question": "Question 1",
-            "expected_outcome": True,
-            "actual_outcome": True,
+            "expected_triggered": True,
+            "actual_triggered": True,
+            "expected_exact": 'True | "1, 3"',
+            "actual_exact": 'True | "1, 3"',
         },
         {
             "question": "Question 2",
-            "expected_outcome": False,
-            "actual_outcome": True,
+            "expected_triggered": False,
+            "actual_triggered": True,
+            "expected_exact": "False | None",
+            "actual_exact": 'True | "1, 3"',
         },
     ]
 

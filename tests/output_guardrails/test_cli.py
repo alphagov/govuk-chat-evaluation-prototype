@@ -62,13 +62,17 @@ def mock_data_generation(mocker):
     return_value = [
         EvaluationResult(
             question="Question",
-            expected_outcome=True,
-            actual_outcome=True,
+            expected_triggered=True,
+            actual_triggered=True,
+            expected_exact="True | None",
+            actual_exact="True | None",
         ),
         EvaluationResult(
             question="Question",
-            expected_outcome=False,
-            actual_outcome=False,
+            expected_triggered=False,
+            actual_triggered=False,
+            expected_exact="False | None",
+            actual_exact="False | None",
         ),
     ]
 
