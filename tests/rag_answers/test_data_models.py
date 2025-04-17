@@ -1,4 +1,5 @@
 import pytest
+import json
 from pydantic import ValidationError
 from deepeval.test_case import LLMTestCase
 from deepeval.metrics import (
@@ -8,11 +9,96 @@ from deepeval.metrics import (
 from govuk_chat_evaluation.rag_answers.data_models import (
     EvaluationTestCase, 
     MetricConfig, 
-    EvaluationConfig, 
+    Config, 
     StructuredContext, 
     RunMetricOutput, 
     EvaluationResult
 )
+
+
+@pytest.fixture(autouse=True)
+def mock_input_data(tmp_path):
+    """Write a valid JSONL input file to use in tests"""
+    data = {
+        "question": "What is VAT?",
+        "llm_answer": "VAT is a tax.",
+        "ideal_answer": "VAT is value-added tax.",
+        "retrieved_context": [
+            {
+                "title": "VAT",
+                "heading_hierarchy": ["Tax", "VAT"],
+                "description": "VAT overview",
+                "html_content": "<p>Some HTML about VAT</p>",
+                "exact_path": "https://gov.uk/vat",
+                "base_path": "https://gov.uk"
+            }
+        ]
+    }
+
+    file_path = tmp_path / "mock_input.jsonl"
+    with open(file_path, "w") as f:
+        f.write(json.dumps(data) + "\n")
+
+    return file_path
+
+
+class TestConfig:
+    def test_config_requires_provider_for_generate(self, mock_input_data):
+        with pytest.raises(ValueError, match="provider is required to generate data"):
+            Config(
+                what="Test",
+                generate=True,
+                provider=None,
+                input_path=mock_input_data,
+                metrics=[],
+                n_runs=1
+            )
+
+        # These should not raise
+        Config(
+            what="Test",
+            generate=False,
+            provider=None,
+            input_path=mock_input_data,
+            metrics=[],
+            n_runs=1
+        )
+
+        Config(
+            what="Test",
+            generate=True,
+            provider="openai",
+            input_path=mock_input_data,
+            metrics=[],
+            n_runs=1
+        )
+
+    def test_get_metric_instances(self, mock_input_data):
+        config_dict = {
+            "what":"Test",
+            "generate":False,
+            "provider":None,
+            "input_path":mock_input_data,
+            "metrics": [
+                {"name": "faithfulness", "threshold": 0.8, "model": "gpt-4o", "temperature": 0.0},
+                {"name": "bias", "threshold": 0.5, "model": "gpt-4o", "temperature": 0.5}
+            ],
+            "n_runs": 3
+        }
+
+        evaluation_config = Config(**config_dict)
+        metrics = evaluation_config.metric_instances()
+
+        assert len(metrics) == 2
+        assert isinstance(metrics[0], FaithfulnessMetric)
+        assert isinstance(metrics[1], BiasMetric)
+        assert metrics[0].threshold == 0.8
+        assert metrics[1].threshold == 0.5
+        assert metrics[0].model.get_model_name() == "gpt-4o"
+        assert metrics[1].model.get_model_name() == "gpt-4o"
+        assert isinstance(evaluation_config.n_runs, int)
+        assert evaluation_config.n_runs == 3
+
 
 
 class TestEvaluationTestCase:
@@ -89,28 +175,6 @@ def test_get_metric_instance_invalid_enum():
     assert "does_not_exist" in str(exception_info.value)
 
 
-class TestEvaluationConfig():
-    def test_get_metric_instances(self):
-        config_dict = {
-            "metrics": [
-                {"name": "faithfulness", "threshold": 0.8, "model": "gpt-4o", "temperature": 0.0},
-                {"name": "bias", "threshold": 0.5, "model": "gpt-4o", "temperature": 0.5}
-            ],
-            "n_runs": 3
-        }
-
-        evaluation_config = EvaluationConfig(**config_dict)
-        metrics = evaluation_config.metric_instances()
-
-        assert len(metrics) == 2
-        assert isinstance(metrics[0], FaithfulnessMetric)
-        assert isinstance(metrics[1], BiasMetric)
-        assert metrics[0].threshold == 0.8
-        assert metrics[1].threshold == 0.5
-        assert metrics[0].model.get_model_name() == "gpt-4o"
-        assert metrics[1].model.get_model_name() == "gpt-4o"
-        assert isinstance(evaluation_config.n_runs, int)
-        assert evaluation_config.n_runs == 3
 
 def test_run_metric_output_defaults():
     rmo = RunMetricOutput(run=1, metric="faithfulness", score=0.87)
