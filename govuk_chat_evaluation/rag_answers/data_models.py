@@ -12,6 +12,10 @@ from deepeval.metrics import (
 )
 from deepeval.models.llms.openai_model import GPTModel
 
+from ..config import BaseConfig
+
+
+# ----- Input data models -----
 
 class StructuredContext(BaseModel):
     title: str
@@ -111,14 +115,26 @@ class MetricConfig(BaseModel):
                 return BiasMetric(threshold=self.threshold, model=model)
 
 
-class EvaluationConfig(BaseModel):
+# ----- Configuration models -----
+
+class Config(BaseConfig):
+    what: BaseConfig.GenericFields.what
+    generate: BaseConfig.GenericFields.generate
+    provider: BaseConfig.GenericFields.provider_openai_or_claude
+    input_path: BaseConfig.GenericFields.input_path
     metrics: list[MetricConfig]
     n_runs: int
 
+    @model_validator(mode="after")
+    def run_validatons(self):
+        return self._validate_fields_required_for_generate("provider")
+    
     def metric_instances(self):
         """Return the list of runtime metric objects for evaluation."""
         return [metric.to_metric_instance() for metric in self.metrics]  # type: ignore
-    
+
+
+# ----- Output data models -----
 
 @dataclass
 class RunMetricOutput:

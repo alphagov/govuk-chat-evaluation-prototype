@@ -4,12 +4,11 @@ from typing import cast
 from functools import cached_property
 import pandas as pd
 
-from deepeval import evaluate as deepeval_evaluate
 from deepeval.metrics import BaseMetric
 
 from .deepeval_evaluate import run_deepeval_evaluation, convert_deepeval_output_to_evaluation_results
 from ..file_system import jsonl_to_models
-from .data_models import EvaluationTestCase, EvaluationConfig, EvaluationResult
+from .data_models import EvaluationTestCase, Config, EvaluationResult
 
 
 DEEPEVAL_EVAL_PARAMETERS = {
@@ -25,7 +24,7 @@ DEEPEVAL_EVAL_PARAMETERS = {
 def evaluate_and_output_results(
     output_dir: Path, 
     evaluation_data_path: Path, 
-    evaluation_config: EvaluationConfig
+    evaluation_config: Config
 ):
     """
     Function to run the evaluation, aggregate the results, and export them to files.
