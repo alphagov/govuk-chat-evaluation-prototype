@@ -2,6 +2,7 @@ from collections import Counter
 from functools import cached_property
 from pathlib import Path
 from typing import Any, List
+from dataclasses import dataclass
 
 import numpy as np
 from pydantic import BaseModel
@@ -14,6 +15,13 @@ from ..file_system import jsonl_to_models, write_csv_results
 import logging
 
 NUM_GUARDRAILS = 7
+
+
+@dataclass
+class _GuardrailParseResult:
+    is_triggered: bool
+    valid_numbers: List[int]  # Unique, valid guardrail numbers
+    warnings: List[str]  # Warnings generated during parsing
 
 
 class EvaluationResult(BaseModel):
@@ -39,11 +47,16 @@ class EvaluationResult(BaseModel):
     def expected_exact_triggered(self) -> List[int] | None:
         """Parses `expected_exact` and returns a binary vector if triggered."""
         try:
-            triggered, guardrails_str = self.parse_exact_string(
-                self.expected_exact, NUM_GUARDRAILS
-            )
-            if triggered:
-                return self.guardrail_str_to_vec(guardrails_str, NUM_GUARDRAILS)
+            result = self.parse_exact_string(self.expected_exact, NUM_GUARDRAILS)
+
+            for warning_msg in result.warnings:
+                logging.warning(
+                    f'{warning_msg} Parsing expected_exact="{self.expected_exact}" '
+                    f'for question="{self.question}".'
+                )
+
+            if result.is_triggered:
+                return self._guardrail_list_to_vec(result.valid_numbers, NUM_GUARDRAILS)
             else:
                 return None
         except ValueError as e:
@@ -57,11 +70,16 @@ class EvaluationResult(BaseModel):
     def actual_exact_triggered(self) -> List[int] | None:
         """Parses `actual_exact` and returns a binary vector if triggered."""
         try:
-            triggered, guardrails_str = self.parse_exact_string(
-                self.actual_exact, NUM_GUARDRAILS
-            )
-            if triggered:
-                return self.guardrail_str_to_vec(guardrails_str, NUM_GUARDRAILS)
+            result = self.parse_exact_string(self.actual_exact, NUM_GUARDRAILS)
+
+            for warning_msg in result.warnings:
+                logging.warning(
+                    f'{warning_msg} Parsing actual_exact="{self.actual_exact}" '
+                    f'for question="{self.question}".'
+                )
+
+            if result.is_triggered:
+                return self._guardrail_list_to_vec(result.valid_numbers, NUM_GUARDRAILS)
             else:
                 return None
         except ValueError as e:
@@ -72,35 +90,83 @@ class EvaluationResult(BaseModel):
             return None
 
     @staticmethod
-    def guardrail_str_to_vec(guardrails_str: str, num_guardrails: int) -> List[int]:
-        """Returns a binary vector of triggered guardrails
+    def _guardrail_list_to_vec(
+        guardrail_numbers: List[int], num_guardrails: int
+    ) -> List[int]:
+        """Returns a binary vector of triggered guardrails from a list of numbers.
 
         Each element of the vector represents whether the corresponding
         guardrail has been triggered. For example:
 
-        "1, 3, 5" -> [1, 0, 1, 0, 0, 0, 0]
-        "1" -> [1, 0, 0, 0, 0, 0, 0]
-        "6, 7" -> [0, 0, 0, 0, 0, 1, 1]
+        [1, 3, 5] -> [1, 0, 1, 0, 1, 0, 0] (assuming num_guardrails=7)
+        [1] -> [1, 0, 0, 0, 0, 0, 0]
+        [6, 7] -> [0, 0, 0, 0, 0, 1, 1]
+        [] -> [0, 0, 0, 0, 0, 0, 0]
         """
-        if not guardrails_str.strip():
+        if not guardrail_numbers:
             return [0] * num_guardrails
 
-        guardrail_set = {
-            int(guardrail.strip()) for guardrail in guardrails_str.split(",")
-        }
+        guardrail_set = set(guardrail_numbers)
         return [1 if i + 1 in guardrail_set else 0 for i in range(num_guardrails)]
 
     @staticmethod
-    def parse_exact_string(exact_string: str, num_guardrails: int) -> tuple[bool, str]:
-        """Parses the exact guardrail result string for guardrail triggers
+    def _process_guardrail_numbers(
+        exact_string_context: str, numbers_str: str, num_guardrails: int
+    ) -> tuple[List[int], List[str]]:
+        """Parses, validates, filters, and deduplicates guardrail numbers."""
+        warnings = []
+        original_guardrail_numbers = []
+
+        number_segments = numbers_str.split(",")
+        for segment in number_segments:
+            stripped_segment = segment.strip()
+            try:
+                original_guardrail_numbers.append(int(stripped_segment))
+            except ValueError as e:
+                raise ValueError(
+                    f"Guardrail string '{exact_string_context}' contains non-integer value "
+                    f"'{stripped_segment}' in the comma-separated list: {e}"
+                ) from e
+
+        if not original_guardrail_numbers:
+            return [], []
+
+        original_set = set(original_guardrail_numbers)
+        valid_range_set = {num for num in original_set if 1 <= num <= num_guardrails}
+        out_of_range_set = original_set - valid_range_set
+
+        valid_range_list = [
+            num for num in original_guardrail_numbers if 1 <= num <= num_guardrails
+        ]
+        if len(valid_range_list) != len(valid_range_set):
+            counts = Counter(valid_range_list)
+            duplicates = sorted([num for num, count in counts.items() if count > 1])
+            warnings.append(f"Removed duplicate numbers: {duplicates}.")
+
+        if out_of_range_set:
+            warnings.append(
+                f"Removed numbers outside the valid range [1, {num_guardrails}]: {sorted(list(out_of_range_set))}."
+            )
+
+        unique_valid_numbers = sorted(list(valid_range_set))
+
+        if not unique_valid_numbers and original_guardrail_numbers:
+            warnings.append(
+                "Resulted in no valid guardrails after filtering/deduplication."
+            )
+
+        return unique_valid_numbers, warnings
+
+    @staticmethod
+    def parse_exact_string(
+        exact_string: str, num_guardrails: int
+    ) -> _GuardrailParseResult:
+        """Parses the exact guardrail result string.
 
         Returns:
-            A tuple containing:
-                - A boolean indicating if any guardrail was triggered.
-                - A string of comma-separated guardrail numbers if triggered,
-                  otherwise the string "None".
+            A _GuardrailParseResult object containing the trigger status,
+            a list of valid, unique guardrail numbers, and any warnings.
         """
-        # Pattern distinguishes between quoted comma-separated numbers and the literal None
         pattern = r"^(True|False)\s*\|\s*(?:\"(.*)\"|(None))$"
         match = re.match(pattern, exact_string)
 
@@ -111,42 +177,28 @@ class EvaluationResult(BaseModel):
             )
 
         triggered_str = match.group(1)
-        guardrails_str = match.group(2)  # comma-separated guardrail numbers, if present
+        guardrails_str = match.group(2)  # Comma-separated numbers, if present
         none_str = match.group(3)  # The literal string "None", if present
 
         if triggered_str == "True":
             if guardrails_str is None:
                 raise ValueError(
-                    f"Guardrail string '{exact_string}' reports being triggered, but is not "
+                    f"Guardrail string '{exact_string}' reports being triggered (True), but is not "
                     f"followed by quoted comma-separated numbers (e.g., 'True | \"1,2\"')."
                 )
 
-            if not guardrails_str.strip():
+            if guardrails_str == "":
                 raise ValueError(
-                    f"Guardrail string '{exact_string}' has 'True' but contains an empty "
-                    f"quoted string. Expected comma-separated numbers."
+                    f"Guardrail string '{exact_string}' has 'True' but guardrails string "
+                    f"is empty. Expected comma-separated numbers."
                 )
 
-            try:
-                guardrail_numbers = [int(num) for num in guardrails_str.split(",")]
-            except ValueError as e:
-                raise ValueError(
-                    f"Guardrail string '{exact_string}' contains non-integer value "
-                    f"in the comma-separated list: {e}"
-                ) from e
-
-            if not all(1 <= num <= num_guardrails for num in guardrail_numbers):
-                raise ValueError(
-                    f"Guardrail string '{exact_string}' contains numbers outside the "
-                    f"valid range [1, {num_guardrails}]."
-                )
-
-            if len(guardrail_numbers) != len(set(guardrail_numbers)):
-                raise ValueError(
-                    f"Guardrail string '{exact_string}' contains duplicate guardrail numbers."
-                )
-
-            return True, guardrails_str
+            valid_numbers, warnings = EvaluationResult._process_guardrail_numbers(
+                exact_string, guardrails_str, num_guardrails
+            )
+            return _GuardrailParseResult(
+                is_triggered=True, valid_numbers=valid_numbers, warnings=warnings
+            )
 
         else:  # triggered_str == "False"
             if none_str != "None" or guardrails_str is not None:
@@ -154,8 +206,10 @@ class EvaluationResult(BaseModel):
                     f"Guardrail string '{exact_string}' starts with 'False' but is not "
                     f"followed by 'None'. Expected format 'False | None'."
                 )
-
-            return False, "None"
+            # Return non-triggered result with empty numbers/warnings
+            return _GuardrailParseResult(
+                is_triggered=False, valid_numbers=[], warnings=[]
+            )
 
     def for_csv(self) -> dict[str, Any]:
         return {**self.model_dump(), "classification": self.classification_triggered}

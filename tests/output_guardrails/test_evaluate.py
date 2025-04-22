@@ -11,6 +11,7 @@ from govuk_chat_evaluation.output_guardrails.evaluate import (
     AggregateResults,
     EvaluationResult,
     evaluate_and_output_results,
+    _GuardrailParseResult,
 )
 
 
@@ -90,89 +91,210 @@ class TestEvaluationResult:
         }
 
     @pytest.mark.parametrize(
-        "guardrails_str, num_guardrails, vec",
+        "guardrail_numbers, num_guardrails, vec",
         [
-            ("1, 2, 5", 7, [1, 1, 0, 0, 1, 0, 0]),
-            ("1, 2, 3, 4, 5, 6, 7", 7, [1, 1, 1, 1, 1, 1, 1]),
-            ("2", 7, [0, 1, 0, 0, 0, 0, 0]),
+            ([1, 2, 5], 7, [1, 1, 0, 0, 1, 0, 0]),
+            ([1, 2, 3, 4, 5, 6, 7], 7, [1, 1, 1, 1, 1, 1, 1]),
+            ([2], 7, [0, 1, 0, 0, 0, 0, 0]),
+            ([], 7, [0, 0, 0, 0, 0, 0, 0]),
         ],
     )
-    def test_guardrail_str_to_vec(self, guardrails_str, num_guardrails, vec):
+    def test_guardrail_list_to_vec(self, guardrail_numbers, num_guardrails, vec):
+        """Test conversion from list of numbers to binary vector."""
         assert (
-            EvaluationResult.guardrail_str_to_vec(guardrails_str, num_guardrails) == vec
+            EvaluationResult._guardrail_list_to_vec(guardrail_numbers, num_guardrails)
+            == vec
         )
 
     @pytest.mark.parametrize(
-        "input_str, num_guardrails, expected_tuple",
+        "input_str, num_guardrails, expected_result",
         [
-            ('True | "1, 3"', 7, (True, "1, 3")),
-            ('True | "1"', 7, (True, "1")),
-            ('True | "7"', 7, (True, "7")),
-            ('True | "1, 7"', 7, (True, "1, 7")),
-            ("False | None", 7, (False, "None")),
+            # Valid cases (no warnings)
+            (
+                'True | "1, 3"',
+                7,
+                _GuardrailParseResult(
+                    is_triggered=True, valid_numbers=[1, 3], warnings=[]
+                ),
+            ),
+            (
+                'True | "1"',
+                7,
+                _GuardrailParseResult(
+                    is_triggered=True, valid_numbers=[1], warnings=[]
+                ),
+            ),
+            (
+                'True | "7"',
+                7,
+                _GuardrailParseResult(
+                    is_triggered=True, valid_numbers=[7], warnings=[]
+                ),
+            ),
+            (
+                'True | "1, 7"',
+                7,
+                _GuardrailParseResult(
+                    is_triggered=True, valid_numbers=[1, 7], warnings=[]
+                ),
+            ),
+            (
+                "False | None",
+                7,
+                _GuardrailParseResult(
+                    is_triggered=False, valid_numbers=[], warnings=[]
+                ),
+            ),
+            # Handled errors (with warnings)
+            (
+                'True | "1, 8"',  # Number 8 is out of range
+                7,
+                _GuardrailParseResult(
+                    is_triggered=True,
+                    valid_numbers=[1],
+                    warnings=["Removed numbers outside the valid range [1, 7]: [8]."],
+                ),
+            ),
+            (
+                'True | "0, 7"',  # Number 0 is out of range
+                7,
+                _GuardrailParseResult(
+                    is_triggered=True,
+                    valid_numbers=[7],
+                    warnings=["Removed numbers outside the valid range [1, 7]: [0]."],
+                ),
+            ),
+            (
+                'True | "1, 1, 3"',  # Duplicate 1
+                7,
+                _GuardrailParseResult(
+                    is_triggered=True,
+                    valid_numbers=[1, 3],
+                    warnings=["Removed duplicate numbers: [1]."],
+                ),
+            ),
+            (
+                'True | "8, 9"',  # All numbers out of range
+                7,
+                _GuardrailParseResult(
+                    is_triggered=True,
+                    valid_numbers=[],
+                    warnings=[
+                        "Removed numbers outside the valid range [1, 7]: [8, 9].",
+                        "Resulted in no valid guardrails after filtering/deduplication.",
+                    ],
+                ),
+            ),
+            (
+                'True | "1, 9, 1"',  # Out of range 9, duplicate 1
+                7,
+                _GuardrailParseResult(
+                    is_triggered=True,
+                    valid_numbers=[1],
+                    warnings=[
+                        "Removed duplicate numbers: [1].",
+                        "Removed numbers outside the valid range [1, 7]: [9].",
+                    ],
+                ),
+            ),
+            (
+                'True | " 3 , 1 "',  # Whitespace around numbers/commas
+                7,
+                _GuardrailParseResult(
+                    is_triggered=True, valid_numbers=[1, 3], warnings=[]
+                ),
+            ),
         ],
     )
-    def test_parse_exact_string(self, input_str, num_guardrails, expected_tuple):
+    def test_parse_exact_string_success_and_handled_errors(
+        self, input_str, num_guardrails, expected_result
+    ):
+        """Tests successful parsing and cases with handled errors (warnings)."""
         assert (
             EvaluationResult.parse_exact_string(input_str, num_guardrails)
-            == expected_tuple
+            == expected_result
         )
 
     @pytest.mark.parametrize(
-        "invalid_input_str, num_guardrails",
+        "invalid_input_str, num_guardrails, expected_error_pattern",
         [
-            ("True | 1, 2, 6", 7),  # Missing double quotes
-            ('True | ""', 7),  # Empty string in quotes
-            ('True | " "', 7),  # Whitespace string in quotes
-            ('False | "None"', 7),  # "None" should not be quoted
-            ("True | None", 7),  # True should have quoted digits, not None
-            ('False | "1, 2"', 7),  # False should have None, not quoted digits
-            ("Gibberish", 7),  # Completely incorrect format
-            ("True |", 7),  # Incomplete format
-            ("False | ", 7),  # Incomplete format
-            ('True | "1, 8"', 7),  # Number out of range (high)
-            ('True | "0, 7"', 7),  # Number out of range (low)
-            ('True | "1, 1"', 7),  # Duplicate number
+            # General Format Errors
+            (
+                "Gibberish",
+                7,
+                re.escape(
+                    "Guardrail string 'Gibberish' does not match expected format"
+                ),
+            ),
+            (
+                "True |",
+                7,
+                re.escape("Guardrail string 'True |' does not match expected format"),
+            ),
+            (
+                "False | ",
+                7,
+                re.escape("Guardrail string 'False | ' does not match expected format"),
+            ),
+            # This case caused the NameError, hardcode the string:
+            (
+                "True | 1, 2, 6",
+                7,
+                re.escape(
+                    "Guardrail string 'True | 1, 2, 6' does not match expected format"
+                ),
+            ),
+            # Errors specific to Triggered=True
+            (
+                "True | None",
+                7,
+                re.escape(
+                    "Guardrail string 'True | None' reports being triggered (True), but is not followed by quoted comma-separated numbers"
+                ),
+            ),
+            # Errors specific to Triggered=False
+            (
+                'False | "None"',
+                7,
+                re.escape(
+                    "Guardrail string 'False | \"None\"' starts with 'False' but is not followed by 'None'."
+                ),
+            ),
+            (
+                'False | "1, 2"',
+                7,
+                re.escape(
+                    "Guardrail string 'False | \"1, 2\"' starts with 'False' but is not followed by 'None'."
+                ),
+            ),
+            # Errors during number parsing (within quotes)
+            (
+                'True | "1,a"',
+                7,
+                re.escape(
+                    "Guardrail string 'True | \"1,a\"' contains non-integer value 'a' in the comma-separated list: invalid literal for int() with base 10: 'a'"
+                ),
+            ),
+            (
+                'True | "a,1"',
+                7,
+                re.escape(
+                    "Guardrail string 'True | \"a,1\"' contains non-integer value 'a' in the comma-separated list: invalid literal for int() with base 10: 'a'"
+                ),
+            ),
+            (
+                'True | "1, 2, c"',
+                7,
+                re.escape(
+                    "Guardrail string 'True | \"1, 2, c\"' contains non-integer value 'c' in the comma-separated list: invalid literal for int() with base 10: 'c'"
+                ),
+            ),
         ],
     )
-    def test_parse_exact_string_invalid_format(self, invalid_input_str, num_guardrails):
-        """Test that parse_exact_string raises ValueError for invalid formats."""
-
-        if invalid_input_str in ('True | ""', 'True | " "'):
-            expected_error_pattern = re.escape(
-                f"Guardrail string '{invalid_input_str}' has 'True' but contains an empty "
-                f"quoted string. Expected comma-separated numbers."
-            )
-        elif invalid_input_str == 'True | "1, 8"':
-            expected_error_pattern = re.escape(
-                f"Guardrail string '{invalid_input_str}' contains numbers outside the "
-                f"valid range [1, {num_guardrails}]."
-            )
-        elif invalid_input_str == 'True | "0, 7"':
-            expected_error_pattern = re.escape(
-                f"Guardrail string '{invalid_input_str}' contains numbers outside the "
-                f"valid range [1, {num_guardrails}]."
-            )
-        elif invalid_input_str == 'True | "1, 1"':
-            expected_error_pattern = re.escape(
-                f"Guardrail string '{invalid_input_str}' contains duplicate guardrail numbers."
-            )
-        elif invalid_input_str == "True | None":
-            expected_error_pattern = re.escape(
-                f"Guardrail string '{invalid_input_str}' reports being triggered, but is not "
-                f"followed by quoted comma-separated numbers (e.g., 'True | \"1,2\"')."
-            )
-        elif invalid_input_str in ('False | "None"', 'False | "1, 2"'):
-            expected_error_pattern = re.escape(
-                f"Guardrail string '{invalid_input_str}' starts with 'False' but is not "
-                f"followed by 'None'. Expected format 'False | None'."
-            )
-        else:  # General format mismatch
-            expected_error_pattern = re.escape(
-                f"Guardrail string '{invalid_input_str}' does not match expected format "
-                f"'True | \"<comma-separated numbers>\"' or 'False | None'."
-            )
-
+    def test_parse_exact_string_invalid_format(
+        self, invalid_input_str, num_guardrails, expected_error_pattern
+    ):
+        """Test that parse_exact_string raises ValueError for genuinely invalid formats/values."""
         with pytest.raises(ValueError, match=expected_error_pattern):
             EvaluationResult.parse_exact_string(invalid_input_str, num_guardrails)
 
