@@ -1,0 +1,4 @@
+what: Evaluating question router
+generate: true
+provider: claude
+input_path: data/question_router.jsonl
