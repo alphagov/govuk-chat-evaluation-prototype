@@ -2,7 +2,11 @@ import json
 
 import pytest
 import yaml
-from deepeval.evaluate import TestResult as DeepevalTestResult, MetricData
+from deepeval.evaluate import (
+    TestResult as DeepevalTestResult,
+    EvaluationResult as DeepevalEvaluationResult,
+    MetricData,
+)
 
 
 @pytest.fixture
@@ -95,3 +99,15 @@ def mock_deepeval_results():
         [results[0], results[1]],  # run 1
         [results[2], results[3]],  # run 2
     ]
+
+
+@pytest.fixture
+def mock_deepeval_evaluate(mocker, mock_deepeval_results):
+    wrapped_results = [
+        DeepevalEvaluationResult(test_results=result, confident_link=None)
+        for result in mock_deepeval_results
+    ]
+    return mocker.patch(
+        "govuk_chat_evaluation.rag_answers.deepeval_evaluate.deepeval_evaluate",
+        side_effect=wrapped_results,  # using side effects to return a group per execution
+    )

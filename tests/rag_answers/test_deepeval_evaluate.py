@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 
-from deepeval.evaluate import BaseMetric, EvaluationResult as DeepevalEvaluationResult
+from deepeval.evaluate import BaseMetric
 
 from govuk_chat_evaluation.file_system import jsonl_to_models
 from govuk_chat_evaluation.rag_answers.data_models import (
@@ -14,18 +14,8 @@ from govuk_chat_evaluation.rag_answers.deepeval_evaluate import (
 )
 
 
+@pytest.mark.usefixtures("mock_deepeval_evaluate")
 class TestRunDeepEvalEvaluation:
-    @pytest.fixture(autouse=True)
-    def mock_deepeval_evaluate(self, mocker, mock_deepeval_results):
-        wrapped_results = [
-            DeepevalEvaluationResult(test_results=result, confident_link=None)
-            for result in mock_deepeval_results
-        ]
-        return mocker.patch(
-            "govuk_chat_evaluation.rag_answers.deepeval_evaluate.deepeval_evaluate",
-            side_effect=wrapped_results,  # using side effects to return a group per execution
-        )
-
     @pytest.fixture
     def mock_test_cases(self, mock_input_data):
         models = jsonl_to_models(mock_input_data, EvaluationTestCase)
