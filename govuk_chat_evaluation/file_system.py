@@ -68,7 +68,7 @@ def write_config_file_for_reuse(output_dir: Path, config: BaseConfig) -> Path:
     """Write a Config object as a YAML file in the output directory"""
     config_path = output_dir / "config.yaml"
     with open(config_path, "w", encoding="utf8") as file:
-        yaml.dump(dict(config), file, default_flow_style=False)
+        yaml.dump(config.model_dump(mode="json"), file, default_flow_style=False)
 
     relative_path = config_path.relative_to(project_root())
     print(f"Wrote used config to {relative_path}")
