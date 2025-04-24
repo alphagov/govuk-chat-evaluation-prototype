@@ -61,24 +61,25 @@ def mock_config_file(tmp_path, mock_input_data):
 def mock_deepeval_results():
     results = []
     for i in range(4):
+        # Using modulus operator so odd and even tests have same input/output
+        test = i % 2
         result = DeepevalTestResult(
-            # Using modulus operator so odd and even tests have same
-            # name and input
-            name=f"test_case_{i % 2}",
-            input=f"test input {i % 2}",
-            actual_output=f"actual output {i}",
-            expected_output=f"expected output {i}",
+            name=f"test_case_{test}",
+            input=f"test input {test}",
+            actual_output=f"actual output {test}",
+            expected_output=f"expected output {test}",
+            retrieval_context=[f"context {test}"],
             metrics_data=[
                 MetricData(
                     name="faithfulness",
                     threshold=0.5,
-                    score=0.9,
+                    score=0.5 + (i / 10),
                     reason="Good faith",
                     success=True,
                 ),  # pyright: ignore[reportCallIssue]
                 MetricData(
                     name="bias",
-                    threshold=0.5,
+                    threshold=0.5 + (i / 10),
                     score=0.8,
                     reason="No bias",
                     success=True,
