@@ -62,11 +62,7 @@ def evaluate_and_output_results(
 
 
 class AggregatedResults:
-    def __init__(self, evaluation_results: list[EvaluationResult] | None):
-        """
-        Args:
-            evaluation_results: List of TestResult objects.
-        """
+    def __init__(self, evaluation_results: list[EvaluationResult]):
         self.evaluation_results = evaluation_results
 
     @cached_property
@@ -122,9 +118,6 @@ class AggregatedResults:
     def export_to_csvs(self, output_dir: Path) -> None:
         """
         Exports per-input and summary metric statistics to CSV files.
-
-        Args:
-            prefix: Prefix for output file names.
         """
         pd.DataFrame(self.evaluation_results).to_csv(output_dir / "tidy_results.csv")
         self.per_input_metric_averages.to_csv(output_dir / "results_per_input.csv")

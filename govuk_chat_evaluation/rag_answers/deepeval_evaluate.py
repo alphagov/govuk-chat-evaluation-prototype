@@ -53,7 +53,7 @@ def run_deepeval_evaluation(
 
 def convert_deepeval_output_to_evaluation_results(
     all_runs: list[list[TestResult]],
-) -> list[EvaluationResult] | None:
+) -> list[EvaluationResult]:
     """
     Convert the results from DeepEval into a more structured format.
 
@@ -116,7 +116,7 @@ def convert_deepeval_output_to_evaluation_results(
 
     aggregated_results: list[EvaluationResult] = []
 
-    for input_name, run_results in grouped_by_input_and_run.items():
+    for _input_name, run_results in grouped_by_input_and_run.items():
         evaluation_outputs: list[RunMetricOutput] = []
 
         # taking the first TestResult for each input to extract static info
