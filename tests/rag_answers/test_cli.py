@@ -1,5 +1,4 @@
 import json
-import yaml
 import pytest
 from click.testing import CliRunner
 
@@ -13,31 +12,6 @@ from govuk_chat_evaluation.rag_answers.data_models import (
 
 
 # ─── Fixtures
-
-
-@pytest.fixture(autouse=True)
-def mock_config_file(tmp_path, mock_input_data):
-    """Create a config YAML file for CLI input"""
-    data = {
-        "what": "Testing RAG Answer evaluations",
-        "generate": True,
-        "provider": "openai",
-        "input_path": str(mock_input_data),
-        "metrics": [
-            {
-                "name": "faithfulness",
-                "threshold": 0.8,
-                "model": "gpt-4o-mini",
-                "temperature": 0.0,
-            }
-        ],
-        "n_runs": 1,
-    }
-    file_path = tmp_path / "config.yaml"
-    with open(file_path, "w") as file:
-        yaml.dump(data, file)
-
-    yield str(file_path)
 
 
 @pytest.fixture(autouse=True)

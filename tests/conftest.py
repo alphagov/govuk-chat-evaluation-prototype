@@ -1,3 +1,6 @@
+import csv
+from pathlib import Path
+
 import pytest
 from unittest.mock import MagicMock
 
@@ -33,3 +36,14 @@ def mock_openai_dependencies(monkeypatch):
 
     # Set a fake API key
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key-for-testing")
+
+
+def assert_csv_exists_with_headers(file_path: Path, *expected_headers: str):
+    assert file_path.exists()
+    with open(file_path, "r") as file:
+        reader = csv.reader(file)
+        headers = next(reader, None)
+        assert headers is not None, f"No headers found in {file_path}"
+
+        missing = [h for h in expected_headers if h not in headers]
+        assert not missing, f"Missing headers in {file_path}: {missing}"
