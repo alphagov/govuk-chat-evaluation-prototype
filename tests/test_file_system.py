@@ -20,6 +20,7 @@ from govuk_chat_evaluation.file_system import (
 
 class SampleConfig(BaseConfig):
     what: str
+    path: Path
 
 
 class SampleModel(BaseModel):
@@ -68,12 +69,12 @@ def test_write_generated_to_output(mock_project_root):
 
 
 def test_write_config_file_for_reuse(mock_project_root):
-    config = SampleConfig(what="Testing config")
+    config = SampleConfig(what="Testing config", path=Path("path/to/item"))
     config_path = write_config_file_for_reuse(mock_project_root, config)
     assert config_path.exists()
     with open(config_path, "r", encoding="utf-8") as file:
         content = yaml.safe_load(file)
-    assert content == {"what": "Testing config"}
+    assert content == {"what": "Testing config", "path": "path/to/item"}
 
 
 def test_write_csv_results(mock_project_root):
