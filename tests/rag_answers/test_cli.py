@@ -1,84 +1,31 @@
-import os
-
 import pytest
-import yaml
 from click.testing import CliRunner
 
-from govuk_chat_evaluation.rag_answers.cli import main, Config
+from govuk_chat_evaluation.rag_answers.cli import main
 from govuk_chat_evaluation.rag_answers.data_models import EvaluationTestCase
 
-
-class TestConfig:
-    def test_config_requires_provider_for_generate(self, mock_input_data):
-        with pytest.raises(ValueError, match="provider is required to generate data"):
-            Config(
-                what="Test",
-                generate=True,
-                provider=None,
-                input_path=mock_input_data,
-            )
-
-        Config(
-            what="Test",
-            generate=False,
-            provider=None,
-            input_path=mock_input_data,
-        )
-
-        Config(
-            what="Test",
-            generate=True,
-            provider="openai",
-            input_path=mock_input_data,
-        )
-
-
-@pytest.fixture(autouse=True)
-def mock_config_file(tmp_path, mock_input_data):
-    """Write a config file as an input for testing"""
-    data = {
-        "what": "Testing RAG Answer evaluations",
-        "generate": True,
-        "provider": "openai",
-        "input_path": str(mock_input_data),
-    }
-    file_path = tmp_path / "config.yaml"
-    with open(file_path, "w") as file:
-        yaml.dump(data, file)
-
-    yield str(file_path)
+# ─── Fixtures
 
 
 @pytest.fixture(autouse=True)
 def freeze_time_for_all_tests(freezer):
-    """Automatically freeze time for all tests in this file."""
     freezer.move_to("2024-11-11 12:34:56")
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def mock_data_generation(mocker):
     return_value = [
         EvaluationTestCase(
-            question="Question", ideal_answer="An answer", llm_answer="An answer"
-        ),
-        EvaluationTestCase(
-            question="Question", ideal_answer="An answer", llm_answer="An answer"
-        ),
-    ]
+            question="Question",
+            ideal_answer="An answer",
+            llm_answer="An answer",
+            retrieved_context=[],
+        )
+    ] * 2
 
     return mocker.patch(
         "govuk_chat_evaluation.rag_answers.generate.generate_inputs_to_evaluation_test_cases",
         return_value=return_value,
-    )
-
-
-@pytest.fixture(autouse=True)
-def mock_deepeval_evaluate(mocker):
-    mocker.patch.dict(os.environ, {"OPENAI_API_KEY": "mock"})
-
-    mocker.patch(
-        "govuk_chat_evaluation.rag_answers.evaluate.deepeval_evaluate",
-        return_value=None,
     )
 
 
@@ -87,23 +34,30 @@ def mock_output_directory(mock_project_root):
     return mock_project_root / "results" / "rag_answers" / "2024-11-11T12:34:56"
 
 
-@pytest.mark.usefixtures("mock_data_generation")
+# ─── Main CLI Tests
+
+
+@pytest.mark.usefixtures("mock_deepeval_evaluate")
 def test_main_creates_output_files(mock_output_directory, mock_config_file):
     runner = CliRunner()
     result = runner.invoke(main, [mock_config_file])
 
-    config_file = mock_output_directory / "config.yaml"
-
     assert result.exit_code == 0, result.output
-    assert mock_output_directory.exists()
-    assert config_file.exists()
+
+    # just one file from the generation since we're already testing all of them
+    # elsewhere
+    expected_files = ["config.yaml", "results_summary.csv"]
+
+    for filename in expected_files:
+        assert (mock_output_directory / filename).exists()
 
 
+@pytest.mark.usefixtures("mock_deepeval_evaluate")
 def test_main_generates_results(
-    mock_output_directory, mock_config_file, mock_data_generation
+    mock_output_directory, mock_config_file, mock_data_generation, mocker
 ):
     runner = CliRunner()
-    result = runner.invoke(main, [mock_config_file, "--generate"])
+    result = runner.invoke(main, [mock_config_file, "--generate"])  # type: ignore[arg-type]
 
     generated_file = mock_output_directory / "generated.jsonl"
 
@@ -112,7 +66,7 @@ def test_main_generates_results(
     assert generated_file.exists()
 
 
-@pytest.mark.usefixtures("mock_output_directory")
+@pytest.mark.usefixtures("mock_deepeval_evaluate", "mock_output_directory")
 def test_main_doesnt_generate_results(mock_config_file, mock_data_generation):
     runner = CliRunner()
     result = runner.invoke(main, [mock_config_file, "--no-generate"])
