@@ -8,6 +8,7 @@ import yaml
 from pydantic import BaseModel
 
 from .config import BaseConfig
+import logging
 
 Model = TypeVar("Model", bound=BaseModel)
 
@@ -31,7 +32,7 @@ def create_output_directory(prefix: str, time: datetime) -> Path:
 
     relative_path = path.relative_to(project_root())
 
-    print(f"Created output directory at {relative_path}/")
+    logging.info(f"Created output directory at {relative_path}/")
 
     return path
 
@@ -59,7 +60,7 @@ def write_generated_to_output(output_dir: Path, generated: list[Model]) -> Path:
             file.write(model.model_dump_json() + "\n")
 
     relative_path = output_path.relative_to(project_root())
-    print(f"Wrote generated data to {relative_path}")
+    logging.info(f"Wrote generated data to {relative_path}")
 
     return output_path
 
@@ -71,7 +72,7 @@ def write_config_file_for_reuse(output_dir: Path, config: BaseConfig) -> Path:
         yaml.dump(config.model_dump(mode="json"), file, default_flow_style=False)
 
     relative_path = config_path.relative_to(project_root())
-    print(f"Wrote used config to {relative_path}")
+    logging.info(f"Wrote used config to {relative_path}")
 
     return config_path
 
@@ -94,6 +95,6 @@ def write_csv_results(
             writer.writerow(record)
 
     relative_path = csv_path.relative_to(project_root())
-    print(f"Wrote {data_label} to {relative_path}")
+    logging.info(f"Wrote {data_label} to {relative_path}")
 
     return csv_path

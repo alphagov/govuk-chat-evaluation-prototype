@@ -9,6 +9,7 @@ from sklearn.metrics import precision_score, recall_score
 from tabulate import tabulate
 
 from ..file_system import jsonl_to_models, write_csv_results
+import logging
 
 
 class EvaluationResult(BaseModel):
@@ -83,7 +84,7 @@ class AggregateResults:
 
 
 def evaluate_and_output_results(output_dir: Path, evaluation_data_path: Path):
-    print("\nEvaluation complete")
+    logging.info("\nEvaluation complete")
     models = jsonl_to_models(evaluation_data_path, EvaluationResult)
     write_csv_results(output_dir, [model.for_csv() for model in models])
 
@@ -97,5 +98,5 @@ def evaluate_and_output_results(output_dir: Path, evaluation_data_path: Path):
     )
 
     table = [[k, v] for k, v in aggregate_results.to_dict().items()]
-    print("Aggregate Results")
-    print(tabulate(table) + "\n")
+    logging.info("Aggregate Results")
+    logging.info(tabulate(table) + "\n")

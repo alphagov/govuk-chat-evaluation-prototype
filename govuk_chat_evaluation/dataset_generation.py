@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Callable, Awaitable
 
 from tqdm.asyncio import tqdm
+import logging
 
 
 async def run_rake_task(task_name: str, env_vars: dict[str, str] | None = None) -> Any:
@@ -53,7 +54,7 @@ async def generate_dataset(
     ]
     evaluations = []
 
-    print("Generating dataset")
+    logging.info("Generating dataset")
     for future in tqdm.as_completed(tasks, total=len(tasks)):
         try:
             evaluation = await future

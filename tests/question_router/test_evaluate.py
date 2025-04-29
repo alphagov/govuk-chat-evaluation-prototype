@@ -1,6 +1,7 @@
 import csv
 import json
 import re
+import logging
 
 import pytest
 
@@ -95,7 +96,7 @@ class TestAggregateResults:
     def test_miscategorised_cases(self, sample_results):
         aggregate = AggregateResults(sample_results)
         miscategorised = aggregate.miscategorised_cases()
-        print(miscategorised)
+        logging.info(miscategorised)
 
         assert len(miscategorised) == 2
         assert miscategorised[0] == {
