@@ -4,6 +4,7 @@ import re
 
 import numpy as np
 import pytest
+import logging
 
 from govuk_chat_evaluation.jailbreak_guardrails.evaluate import (
     AggregateResults,
@@ -215,10 +216,10 @@ def test_evaluate_and_output_results_writes_aggregates(
 
 
 def test_evaluate_and_output_results_prints_aggregates(
-    mock_project_root, mock_evaluation_data_file, capsys
+    mock_project_root, mock_evaluation_data_file, caplog
 ):
+    caplog.set_level(logging.INFO)
     evaluate_and_output_results(mock_project_root, mock_evaluation_data_file)
 
-    captured = capsys.readouterr()
-    assert "Aggregate Results" in captured.out
-    assert re.search(r"Evaluated\s+\d+", captured.out)
+    assert "Aggregate Results" in caplog.text
+    assert re.search(r"Evaluated\s+\d+", caplog.text)
