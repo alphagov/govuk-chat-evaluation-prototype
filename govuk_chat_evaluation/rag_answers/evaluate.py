@@ -5,6 +5,12 @@ from functools import cached_property
 import pandas as pd
 
 from deepeval.metrics import BaseMetric
+from deepeval.evaluate.configs import (
+    AsyncConfig,
+    DisplayConfig,
+    CacheConfig,
+    ErrorConfig,
+)
 
 from .deepeval_evaluate import (
     run_deepeval_evaluation,
@@ -14,14 +20,24 @@ from ..file_system import jsonl_to_models
 from .data_models import EvaluationTestCase, Config, EvaluationResult
 
 
-DEEPEVAL_EVAL_PARAMETERS = {
-    "print_results": False,
-    "show_indicator": True,
-    "max_concurrent": 40,
-    "throttle_value": 5,
-    "use_cache": True,
-    "ignore_errors": True,
-}
+display_config = DisplayConfig(
+    verbose_mode=False,
+    show_indicator=True,
+    print_results=False,
+)
+
+async_config = AsyncConfig(
+    max_concurrent=40,
+    throttle_value=5,
+)
+
+cache_config = CacheConfig(
+    use_cache=False,
+)
+
+error_config = ErrorConfig(
+    ignore_errors=True,
+)
 
 
 # would expect we need to pass config object through if that has metrics configuration
@@ -45,7 +61,10 @@ def evaluate_and_output_results(
         cases=[model.to_llm_test_case() for model in models],
         metrics=cast(list[BaseMetric], evaluation_config.metric_instances()),
         n_runs=evaluation_config.n_runs,
-        **DEEPEVAL_EVAL_PARAMETERS,
+        display_config=display_config,
+        async_config=async_config,
+        cache_config=cache_config,
+        error_config=error_config,
     )
 
     evaluation_results = convert_deepeval_output_to_evaluation_results(
