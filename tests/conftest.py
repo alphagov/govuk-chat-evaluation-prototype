@@ -1,7 +1,11 @@
 import csv
 from pathlib import Path
+from inspect import signature
+from typing import Callable
+from unittest.mock import MagicMock
 
 import pytest
+from typeguard import check_type, TypeCheckError
 
 
 @pytest.fixture
@@ -28,3 +32,23 @@ def assert_csv_exists_with_headers(file_path: Path, *expected_headers: str):
 
         missing = [h for h in expected_headers if h not in headers]
         assert not missing, f"Missing headers in {file_path}: {missing}"
+
+
+def assert_mock_call_matches_signature(
+    mock_function: MagicMock, original_function: Callable
+) -> None:
+    args, kwargs = mock_function.call_args
+    sig = signature(original_function)
+    bound = sig.bind(*args, **kwargs)
+    bound.apply_defaults()
+
+    for name, value in bound.arguments.items():
+        expected_type = sig.parameters[name].annotation
+        if expected_type is not sig.empty:
+            try:
+                check_type(value, expected_type)
+            except TypeCheckError as e:
+                raise AssertionError(
+                    f"Argument '{name}' for {original_function!r} has invalid "
+                    f"type: {value!r} (expected {expected_type})"
+                ) from e

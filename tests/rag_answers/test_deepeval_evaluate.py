@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 
+from deepeval import evaluate as deepeval_evaluate
 from deepeval.metrics import BaseMetric
 from deepeval.evaluate.configs import (
     AsyncConfig,
@@ -18,6 +19,7 @@ from govuk_chat_evaluation.rag_answers.deepeval_evaluate import (
     run_deepeval_evaluation,
     convert_deepeval_output_to_evaluation_results,
 )
+from tests.conftest import assert_mock_call_matches_signature
 
 
 @pytest.mark.usefixtures("mock_deepeval_evaluate")
@@ -45,6 +47,7 @@ class TestRunDeepEvalEvaluation:
         self, mock_test_cases, mock_metrics, mock_deepeval_evaluate
     ):
         run_deepeval_evaluation(mock_test_cases, mock_metrics)
+        assert_mock_call_matches_signature(mock_deepeval_evaluate, deepeval_evaluate)
         mock_deepeval_evaluate.assert_called_once_with(
             test_cases=mock_test_cases, metrics=mock_metrics
         )
@@ -53,6 +56,7 @@ class TestRunDeepEvalEvaluation:
         self, mock_test_cases, mock_metrics, mock_deepeval_evaluate
     ):
         run_deepeval_evaluation(mock_test_cases, mock_metrics, n_runs=2)
+        assert_mock_call_matches_signature(mock_deepeval_evaluate, deepeval_evaluate)
         mock_deepeval_evaluate.assert_called_with(
             test_cases=mock_test_cases, metrics=mock_metrics
         )
@@ -74,6 +78,8 @@ class TestRunDeepEvalEvaluation:
             cache_config=CacheConfig(use_cache=True),
             error_config=ErrorConfig(ignore_errors=False),
         )
+
+        assert_mock_call_matches_signature(mock_deepeval_evaluate, deepeval_evaluate)
 
         mock_deepeval_evaluate.assert_called_with(
             test_cases=mock_test_cases,
