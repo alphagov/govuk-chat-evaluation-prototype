@@ -67,16 +67,21 @@ class TestRunDeepEvalEvaluation:
         self, mock_test_cases, mock_metrics, mock_deepeval_evaluate
     ):
         run_deepeval_evaluation(
-            mock_test_cases, mock_metrics, display_config=DisplayConfig(print_results=True), async_config=AsyncConfig(max_concurrent=10), cache_config=CacheConfig(use_cache=True), error_config=ErrorConfig(ignore_errors=False)
+            mock_test_cases,
+            mock_metrics,
+            display_config=DisplayConfig(print_results=True),
+            async_config=AsyncConfig(max_concurrent=10),
+            cache_config=CacheConfig(use_cache=True),
+            error_config=ErrorConfig(ignore_errors=False),
         )
 
         mock_deepeval_evaluate.assert_called_with(
             test_cases=mock_test_cases,
             metrics=mock_metrics,
-            display_config=DisplayConfig(print_results=True), 
-            async_config=AsyncConfig(max_concurrent=10), 
-            cache_config=CacheConfig(use_cache=True), 
-            error_config=ErrorConfig(ignore_errors=False)
+            display_config=DisplayConfig(print_results=True),
+            async_config=AsyncConfig(max_concurrent=10),
+            cache_config=CacheConfig(use_cache=True),
+            error_config=ErrorConfig(ignore_errors=False),
         )
 
 
