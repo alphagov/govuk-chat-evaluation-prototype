@@ -12,6 +12,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Deepeval artefacts
+.deepeval*
+
 # Private data
 /data/*
 !/data/.keep
