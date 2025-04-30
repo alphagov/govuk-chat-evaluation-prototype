@@ -7,6 +7,7 @@ from pydantic import Field, model_validator
 
 from ..config import BaseConfig, config_from_cli_args, apply_click_options_to_command
 from ..file_system import create_output_directory, write_config_file_for_reuse
+from ..logging import setup_logging
 from .evaluate import evaluate_and_output_results
 from .generate import generate_and_write_dataset
 
@@ -44,6 +45,7 @@ def main(**cli_args):
     )
 
     output_dir = create_output_directory("output_guardrails", start_time)
+    setup_logging(output_dir)
 
     if config.generate:
         evaluate_path = generate_and_write_dataset(
