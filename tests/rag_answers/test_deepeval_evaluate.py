@@ -2,6 +2,12 @@ import pytest
 from unittest.mock import MagicMock
 
 from deepeval.metrics import BaseMetric
+from deepeval.evaluate.configs import (
+    AsyncConfig,
+    DisplayConfig,
+    CacheConfig,
+    ErrorConfig,
+)
 
 from govuk_chat_evaluation.file_system import jsonl_to_models
 from govuk_chat_evaluation.rag_answers.data_models import (
@@ -61,14 +67,16 @@ class TestRunDeepEvalEvaluation:
         self, mock_test_cases, mock_metrics, mock_deepeval_evaluate
     ):
         run_deepeval_evaluation(
-            mock_test_cases, mock_metrics, print_results=True, show_indicator=True
+            mock_test_cases, mock_metrics, display_config=DisplayConfig(print_results=True), async_config=AsyncConfig(max_concurrent=10), cache_config=CacheConfig(use_cache=True), error_config=ErrorConfig(ignore_errors=False)
         )
 
         mock_deepeval_evaluate.assert_called_with(
             test_cases=mock_test_cases,
             metrics=mock_metrics,
-            print_results=True,
-            show_indicator=True,
+            display_config=DisplayConfig(print_results=True), 
+            async_config=AsyncConfig(max_concurrent=10), 
+            cache_config=CacheConfig(use_cache=True), 
+            error_config=ErrorConfig(ignore_errors=False)
         )
 
 
