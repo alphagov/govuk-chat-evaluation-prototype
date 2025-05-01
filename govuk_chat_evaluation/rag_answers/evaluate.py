@@ -18,6 +18,7 @@ from .deepeval_evaluate import (
 )
 from ..file_system import jsonl_to_models
 from .data_models import EvaluationTestCase, Config, EvaluationResult
+import logging
 
 
 display_config = DisplayConfig(
@@ -76,8 +77,8 @@ def evaluate_and_output_results(
     # calculate aggregated results and exports results to CSV files
     aggregation.export_to_csvs(output_dir)
 
-    print("Evaluation Results:")
-    print(aggregation.summary)
+    logging.info("Evaluation Results:")
+    logging.info(aggregation.summary)
 
 
 class AggregatedResults:

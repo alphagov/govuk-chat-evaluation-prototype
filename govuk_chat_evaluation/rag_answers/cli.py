@@ -5,10 +5,11 @@ from typing import cast
 import click
 
 from ..config import apply_click_options_to_command, config_from_cli_args
-from ..file_system import create_output_directory, write_config_file_for_reuse
+from ..file_system import write_config_file_for_reuse
 from .evaluate import evaluate_and_output_results
 from .generate import generate_and_write_dataset
 from .data_models import Config
+from ..output import initialise_output
 
 
 @click.command(name="rag_answers")
@@ -28,7 +29,7 @@ def main(**cli_args):
         cli_args=cli_args,
     )
 
-    output_dir = create_output_directory("rag_answers", start_time)
+    output_dir = initialise_output("rag_answers", start_time)
 
     if config.generate:
         evaluate_path = generate_and_write_dataset(
