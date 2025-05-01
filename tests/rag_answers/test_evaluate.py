@@ -2,6 +2,7 @@ import pytest
 import pandas as pd
 import re
 import yaml
+import logging
 
 from govuk_chat_evaluation.rag_answers.data_models import (
     Config,
@@ -126,10 +127,11 @@ def test_evaluate_and_output_results_writes_results_to_disk(
 
 @pytest.mark.usefixtures("mock_run_deepeval_evaluation")
 def test_evaluate_and_output_results_prints_summary(
-    tmp_path, mock_input_data, mock_evaluation_config, capsys
+    tmp_path, mock_input_data, mock_evaluation_config, caplog
 ):
+    caplog.set_level(logging.INFO)
     evaluate_and_output_results(tmp_path, mock_input_data, mock_evaluation_config)
 
-    captured = capsys.readouterr()
-    assert "Evaluation Results:" in captured.out
-    assert re.search(r"median\s+mean\s+std", captured.out)
+    captured = caplog.text
+    assert "Evaluation Results:" in captured
+    assert re.search(r"median\s+mean\s+std", captured)

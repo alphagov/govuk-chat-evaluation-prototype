@@ -6,7 +6,8 @@ from deepeval.metrics import BaseMetric
 from deepeval.test_case import LLMTestCase
 
 from .data_models import EvaluationResult, RunMetricOutput
-from ..timing import print_task_duration
+from ..timing import log_task_duration
+import logging
 
 
 def run_deepeval_evaluation(
@@ -26,13 +27,13 @@ def run_deepeval_evaluation(
 
     """
 
-    with print_task_duration("Running Deepval Evaluation"):
-        print("Running Deepval evaluation")
+    with log_task_duration("Running Deepval Evaluation"):
+        logging.info("Running Deepval evaluation")
 
         all_evaluation_runs = []
 
         for i in range(n_runs):
-            print(f"Running evaluation iteration {i + 1}/{n_runs}...")
+            logging.info(f"Running evaluation iteration {i + 1}/{n_runs}...")
 
             evaluation_run = deepeval_evaluate(
                 test_cases=cases,
@@ -44,7 +45,7 @@ def run_deepeval_evaluation(
                 evaluation_run.test_results
             )  # Store results per run
 
-    print("Deepval evaluation complete")
+    logging.info("Deepval evaluation complete")
 
     return all_evaluation_runs
 

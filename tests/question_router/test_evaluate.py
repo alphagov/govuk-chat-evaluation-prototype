@@ -1,6 +1,7 @@
 import csv
 import json
 import re
+import logging
 
 import pytest
 
@@ -95,7 +96,7 @@ class TestAggregateResults:
     def test_miscategorised_cases(self, sample_results):
         aggregate = AggregateResults(sample_results)
         miscategorised = aggregate.miscategorised_cases()
-        print(miscategorised)
+        logging.info(miscategorised)
 
         assert len(miscategorised) == 2
         assert miscategorised[0] == {
@@ -214,10 +215,10 @@ def test_evaluate_and_output_results_writes_miscategorised_cases(
 
 
 def test_evaluate_and_output_results_prints_aggregates(
-    mock_project_root, mock_evaluation_data_file, capsys
+    mock_project_root, mock_evaluation_data_file, caplog
 ):
+    caplog.set_level(logging.INFO)
     evaluate_and_output_results(mock_project_root, mock_evaluation_data_file)
 
-    captured = capsys.readouterr()
-    assert "Aggregate Results" in captured.out
-    assert re.search(r"Evaluated\s+\d+", captured.out)
+    assert "Aggregate Results" in caplog.text
+    assert re.search(r"Evaluated\s+\d+", caplog.text)
