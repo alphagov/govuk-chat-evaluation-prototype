@@ -84,8 +84,13 @@ class AggregateResults:
 
 
 def evaluate_and_output_results(output_dir: Path, evaluation_data_path: Path):
-    logging.info("\nEvaluation complete")
     models = jsonl_to_models(evaluation_data_path, EvaluationResult)
+
+    if not models:
+        logging.error("\nThere is no data to evaluate")
+        return
+
+    logging.info("\nEvaluation complete")
     write_csv_results(output_dir, [model.for_csv() for model in models])
 
     aggregate_results = AggregateResults(models)

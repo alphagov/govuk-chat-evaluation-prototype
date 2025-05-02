@@ -58,6 +58,10 @@ def evaluate_and_output_results(
 
     models = jsonl_to_models(evaluation_data_path, EvaluationTestCase)
 
+    if not models:
+        logging.error("\nThere is no data to evaluate")
+        return
+
     evaluation_outputs = run_deepeval_evaluation(
         cases=[model.to_llm_test_case() for model in models],
         metrics=cast(list[BaseMetric], evaluation_config.metric_instances()),

@@ -135,3 +135,15 @@ def test_evaluate_and_output_results_prints_summary(
     captured = caplog.text
     assert "Evaluation Results:" in captured
     assert re.search(r"median\s+mean\s+std", captured)
+
+
+def test_evaluate_and_output_results_copes_with_empty_data(
+    mock_project_root, tmp_path, mock_evaluation_config, caplog
+):
+    caplog.set_level(logging.ERROR)
+    file_path = tmp_path / "evaluation_data.jsonl"
+    file_path.touch()
+
+    evaluate_and_output_results(mock_project_root, file_path, mock_evaluation_config)
+
+    assert "There is no data to evaluate" in caplog.text
