@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -32,11 +33,19 @@ def generate_inputs_to_evaluation_results(
             env,
         )
 
-        return EvaluationResult(
-            question=input.question,
-            expected_outcome=input.expected_outcome,
-            actual_outcome=result["triggered"],
-        )
+        if "success" in result:
+            return EvaluationResult(
+                question=input.question,
+                expected_outcome=input.expected_outcome,
+                actual_outcome=result["success"]["triggered"],
+            )
+        elif "response_error" in result:
+            logging.warning(
+                f"Invalid response for {input.question!r}, returned: {result['response_error']!r}"
+            )
+            return None
+        else:
+            raise RuntimeError(f"Unexpected result structure {result!r}")
 
     return asyncio.run(
         generate_dataset(generate_inputs, generate_input_to_evaluation_result)

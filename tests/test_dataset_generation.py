@@ -70,14 +70,16 @@ async def test_run_rake_task_failure(mocker):
 @pytest.mark.asyncio
 async def test_generate_dataset():
     async def mock_generation_func(item):
-        return {"input": item, "output": f"generated-{item}"}
+        if item == "question2":
+            return None
+        else:
+            return {"input": item, "output": f"generated-{item}"}
 
     ground_truth = ["question1", "question2", "question3"]
     result = await generate_dataset(ground_truth, mock_generation_func)
 
     expected_result = [
         {"input": "question1", "output": "generated-question1"},
-        {"input": "question2", "output": "generated-question2"},
         {"input": "question3", "output": "generated-question3"},
     ]
 
