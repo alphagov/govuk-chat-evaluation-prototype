@@ -13,7 +13,7 @@ def setup_logging(run_output_dir: Path) -> None:
     stream_handler.setFormatter(logging.Formatter("%(message)s"))
     root.addHandler(stream_handler)
 
-    file_handler = logging.FileHandler(run_output_dir / "run.log")
+    file_handler = logging.FileHandler(run_output_dir / "problems.log")
     file_handler.setLevel(logging.WARNING)
     file_handler.setFormatter(
         logging.Formatter(
