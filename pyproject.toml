@@ -30,6 +30,10 @@ dev = [
     "typeguard>=4.4.2",
 ]
 
+
+[tool.uv]
+package = true
+
 [project.scripts]
 govuk_chat_evaluation = "govuk_chat_evaluation.cli:main"
 
