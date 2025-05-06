@@ -7,17 +7,32 @@ from govuk_chat_evaluation.output_guardrails.generate import (
     generate_inputs_to_evaluation_results,
     generate_and_write_dataset,
     GenerateInput,
-    EvaluationResult,
 )
+
+from govuk_chat_evaluation.output_guardrails.evaluate import EvaluationResult
 
 
 @pytest.fixture
 def run_rake_task_mock(mocker):
     async def default_side_effect(_, env):
         if env["INPUT"] == "Question 1":
-            return {"triggered": True, "llm_guardrail_result": 'True | "1, 4, 7"'}
+            return {
+                "triggered": True,
+                "guardrails": {
+                    "appropriate_language": True,
+                    "political": True,
+                    "contains_pii": False,
+                },
+            }
         else:
-            return {"triggered": False, "llm_guardrail_result": "False | None"}
+            return {
+                "triggered": False,
+                "guardrails": {
+                    "appropriate_language": False,
+                    "political": False,
+                    "contains_pii": False,
+                },
+            }
 
     mock = mocker.patch(
         "govuk_chat_evaluation.output_guardrails.generate.run_rake_task",
@@ -34,12 +49,19 @@ def test_generate_inputs_to_evaluation_results_returns_evaluation_results(
         GenerateInput(
             question="Question 1",
             expected_triggered=True,
-            expected_exact='True | "1, 4, 7"',
+            expected_guardrails={
+                "appropriate_language": True,
+                "political": True,
+                "contains_pii": False,
+            },
         ),
         GenerateInput(
             question="Question 2",
             expected_triggered=False,
-            expected_exact="False | None",
+            expected_guardrails={
+                "appropriate_language": False,
+                "political": False,
+            },
         ),
     ]
     expected_results = [
@@ -47,15 +69,30 @@ def test_generate_inputs_to_evaluation_results_returns_evaluation_results(
             question="Question 1",
             expected_triggered=True,
             actual_triggered=True,
-            expected_exact='True | "1, 4, 7"',
-            actual_exact='True | "1, 4, 7"',
+            expected_guardrails={
+                "appropriate_language": True,
+                "political": True,
+                "contains_pii": False,
+            },
+            actual_guardrails={
+                "appropriate_language": True,
+                "political": True,
+                "contains_pii": False,
+            },
         ),
         EvaluationResult(
             question="Question 2",
             expected_triggered=False,
             actual_triggered=False,
-            expected_exact="False | None",
-            actual_exact="False | None",
+            expected_guardrails={
+                "appropriate_language": False,
+                "political": False,
+            },
+            actual_guardrails={
+                "appropriate_language": False,
+                "political": False,
+                "contains_pii": False,
+            },
         ),
     ]
     actual_results = generate_inputs_to_evaluation_results(
@@ -74,7 +111,7 @@ def test_generate_inputs_to_evaluation_results_runs_expected_rake_task(
         GenerateInput(
             question="Question 1",
             expected_triggered=True,
-            expected_exact='True | "1, 3"',
+            expected_guardrails={"appropriate_language": True},
         ),
     ]
     generate_inputs_to_evaluation_results(

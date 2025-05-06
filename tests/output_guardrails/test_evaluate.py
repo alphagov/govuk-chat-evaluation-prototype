@@ -1,18 +1,16 @@
 import csv
 import json
 import re
-import logging
 
 import numpy as np
 import pytest
 import logging
+from pytest import approx
 
 from govuk_chat_evaluation.output_guardrails.evaluate import (
     AggregateResults,
     EvaluationResult,
     evaluate_and_output_results,
-    GuardrailParseResult,
-    NUM_GUARDRAILS,
 )
 
 
@@ -22,8 +20,8 @@ def result_true_positive() -> EvaluationResult:  # type: ignore
         question="TP",
         expected_triggered=True,
         actual_triggered=True,
-        expected_exact='True | "1, 3"',
-        actual_exact='True | "1, 3"',
+        expected_guardrails={"g1": True, "g3": True},
+        actual_guardrails={"g1": True, "g3": True},
     )
 
 
@@ -33,8 +31,8 @@ def result_false_positive() -> EvaluationResult:  # type: ignore
         question="FP",
         expected_triggered=False,
         actual_triggered=True,
-        expected_exact="False | None",
-        actual_exact='True | "1, 3"',
+        expected_guardrails={"g1": False, "g3": False},
+        actual_guardrails={"g1": True, "g3": True},
     )
 
 
@@ -44,8 +42,8 @@ def result_false_negative() -> EvaluationResult:  # type: ignore
         question="FN",
         expected_triggered=True,
         actual_triggered=False,
-        expected_exact='True | "1, 3"',
-        actual_exact="False | None",
+        expected_guardrails={"g1": True, "g3": True},
+        actual_guardrails={"g1": False, "g3": False},
     )
 
 
@@ -55,305 +53,177 @@ def result_true_negative() -> EvaluationResult:  # type: ignore
         question="TN",
         expected_triggered=False,
         actual_triggered=False,
-        expected_exact="False | None",
-        actual_exact="False | None",
+        expected_guardrails={"g1": False, "g3": False},
+        actual_guardrails={"g1": False, "g3": False},
+    )
+
+
+@pytest.fixture
+def result_mixed_guardrails() -> EvaluationResult:
+    return EvaluationResult(
+        question="Mixed",
+        expected_triggered=True,
+        actual_triggered=True,
+        expected_guardrails={"g1": True, "g2": False, "g3": True},
+        actual_guardrails={
+            "g1": True,
+            "g2": True,
+            "g3": False,
+            "g4": True,
+        },  # g1 TP, g2 FP, g3 TN, g4 FP
     )
 
 
 class TestEvaluationResult:
     @pytest.mark.parametrize(
-        "expected, actual, expected_classification",
+        "fixture_name, expected_classification",
         [
-            (True, True, "true_positive"),
-            (False, False, "true_negative"),
-            (False, True, "false_positive"),
-            (True, False, "false_negative"),
+            ("result_true_positive", "true_positive"),
+            ("result_true_negative", "true_negative"),
+            ("result_false_positive", "false_positive"),
+            ("result_false_negative", "false_negative"),
         ],
     )
-    def test_classification_triggered(self, expected, actual, expected_classification):
-        result = EvaluationResult(
-            question="Test question",
-            expected_triggered=expected,
-            actual_triggered=actual,
-            expected_exact="",
-            actual_exact="",
-        )
+    def test_classification_triggered(
+        self, request, fixture_name, expected_classification
+    ):
+        result: EvaluationResult = request.getfixturevalue(fixture_name)
         assert result.classification_triggered == expected_classification
 
-    @pytest.mark.parametrize(
-        "exact_str, expected_vec",
-        [
-            ('True | "1, 3"', [1, 0, 1, 0, 0, 0, 0]),
-            ('True | "1"', [1, 0, 0, 0, 0, 0, 0]),
-            ('True | "5, 6, 7"', [0, 0, 0, 0, 1, 1, 1]),
-            ("False | None", [0, 0, 0, 0, 0, 0, 0]),
-        ],
-    )
-    def test_expected_exact_triggered(self, exact_str, expected_vec):
-        result = EvaluationResult(
-            question="Test question",
-            expected_triggered=True,
-            actual_triggered=True,
-            expected_exact=exact_str,
-            actual_exact="Irrelevant",
-        )
-        assert result.expected_exact_triggered == expected_vec
-
-    @pytest.mark.parametrize(
-        "exact_str, expected_vec",
-        [
-            ('True | "1, 3"', [1, 0, 1, 0, 0, 0, 0]),
-            ('True | "1"', [1, 0, 0, 0, 0, 0, 0]),
-            ('True | "5, 6, 7"', [0, 0, 0, 0, 1, 1, 1]),
-        ],
-    )
-    def test_actual_exact_triggered(self, exact_str, expected_vec):
-        result = EvaluationResult(
-            question="Test question",
-            expected_triggered=True,
-            actual_triggered=True,
-            expected_exact="Irrelevant",
-            actual_exact=exact_str,
-        )
-        assert result.actual_exact_triggered == expected_vec
-
-    def test_for_csv(self):
-        result = EvaluationResult(
-            question="Test question",
-            expected_triggered=True,
-            actual_triggered=True,
-            expected_exact='True | "1, 3"',
-            actual_exact='True | "1, 3"',
-        )
-
-        assert result.for_csv() == {
-            "question": "Test question",
+    def test_for_csv(self, result_mixed_guardrails):
+        result = result_mixed_guardrails
+        expected_csv_dict = {
+            "question": "Mixed",
             "expected_triggered": True,
             "actual_triggered": True,
-            "expected_exact": 'True | "1, 3"',
-            "actual_exact": 'True | "1, 3"',
+            "expected_guardrails": {"g1": True, "g2": False, "g3": True},
+            "actual_guardrails": {"g1": True, "g2": True, "g3": False, "g4": True},
             "classification": "true_positive",
         }
-
-    def test_exact_triggered_parsing_error(self, caplog):
-        invalid_format = "True | Invalid Format"
-        result = EvaluationResult(
-            question="Test Invalid Q",
-            expected_triggered=True,  # Overall trigger is True
-            actual_triggered=True,
-            expected_exact=invalid_format,
-            actual_exact=invalid_format,
-        )
-
-        caplog.set_level(logging.WARNING)
-        caplog.clear()
-
-        # Check expected_exact_triggered
-        assert result.expected_exact_triggered == [0, 0, 0, 0, 0, 0, 0]
-        assert len(caplog.records) == 0
-
-        # Check actual_exact_triggered
-        assert result.actual_exact_triggered == [0, 0, 0, 0, 0, 0, 0]
-        assert len(caplog.records) == 0
+        assert result.for_csv() == expected_csv_dict
 
 
 class TestAggregateResults:
     @pytest.fixture
-    def sample_results(self) -> list[EvaluationResult]:
+    def sample_results(
+        self,
+        result_true_positive,
+        result_true_negative,
+        result_false_positive,
+        result_false_negative,
+    ) -> list[EvaluationResult]:
         return [
-            EvaluationResult(
-                question="Q1",
-                expected_triggered=True,
-                actual_triggered=True,
-                expected_exact='True | "1, 3"',
-                actual_exact='True | "1, 3"',
-            ),  # TP
-            EvaluationResult(
-                question="Q2",
-                expected_triggered=True,
-                actual_triggered=True,
-                expected_exact='True | "1, 3"',
-                actual_exact='True | "1, 3"',
-            ),  # TP
-            EvaluationResult(
-                question="Q3",
-                expected_triggered=True,
-                actual_triggered=True,
-                expected_exact='True | "1, 3"',
-                actual_exact='True | "1, 3"',
-            ),  # TP
-            EvaluationResult(
-                question="Q4",
-                expected_triggered=True,
-                actual_triggered=True,
-                expected_exact='True | "1, 3"',
-                actual_exact='True | "1, 3"',
-            ),  # TP
-            EvaluationResult(
-                question="Q5",
-                expected_triggered=False,
-                actual_triggered=False,
-                expected_exact="False | None",
-                actual_exact="False | None",
-            ),  # TP
-            EvaluationResult(
-                question="Q6",
-                expected_triggered=False,
-                actual_triggered=False,
-                expected_exact="False | None",
-                actual_exact="False | None",
-            ),  # TP
-            EvaluationResult(
-                question="Q7",
-                expected_triggered=False,
-                actual_triggered=False,
-                expected_exact="False | None",
-                actual_exact="False | None",
-            ),  # TP
-            EvaluationResult(
-                question="Q8",
-                expected_triggered=False,
-                actual_triggered=True,
-                expected_exact="False | None",
-                actual_exact='True | "1, 3"',
-            ),  # TP
-            EvaluationResult(
-                question="Q9",
-                expected_triggered=True,
-                actual_triggered=False,
-                expected_exact='True | "1, 3"',
-                actual_exact="False | None",
-            ),  # TP
+            result_true_positive,
+            result_true_positive,
+            result_true_negative,
+            result_true_negative,
+            result_true_negative,
+            result_false_positive,
+            result_false_negative,
         ]
 
-    def test_precision_value(self, result_true_positive, result_false_positive):
-        results = [result_true_positive, result_false_positive]
-        aggregate = AggregateResults(results)
-        assert aggregate.precision() == 0.5
+    def test_confusion_matrix_counts(self, sample_results):
+        aggregate = AggregateResults(sample_results)
+        assert aggregate.true_positive == 2
+        assert aggregate.true_negative == 3
+        assert aggregate.false_positive == 1
+        assert aggregate.false_negative == 1
 
-    def test_precision_nan(self, result_false_negative, result_true_negative):
+    def test_precision_any_triggered(self, sample_results):
+        aggregate = AggregateResults(sample_results)
+        # Precision = TP / (TP + FP) = 2 / (2 + 1) = 2/3
+        assert aggregate.precision() == approx(2 / 3)
+
+    def test_precision_any_triggered_nan(
+        self, result_false_negative, result_true_negative
+    ):
+        # No positive predictions (TP=0, FP=0)
         aggregate = AggregateResults([result_false_negative, result_true_negative])
         assert np.isnan(aggregate.precision())
 
-    def test_recall_value(self, result_true_positive, result_false_negative):
-        aggregate = AggregateResults([result_true_positive, result_false_negative])
-        assert aggregate.recall() == 0.5
+    def test_recall_any_triggered(self, sample_results):
+        aggregate = AggregateResults(sample_results)
+        # Recall = TP / (TP + FN) = 2 / (2 + 1) = 2/3
+        assert aggregate.recall() == approx(2 / 3)
 
-    def test_recall_nan(self, result_true_negative, result_false_positive):
+    def test_recall_any_triggered_nan(
+        self, result_true_negative, result_false_positive
+    ):
+        # No actual positive cases (TP=0, FN=0)
         aggregate = AggregateResults([result_true_negative, result_false_positive])
         assert np.isnan(aggregate.recall())
 
-    def test_to_dict(self, sample_results):
-        aggregate = AggregateResults(sample_results)
-        result_dict = aggregate.to_dict()
-
-        assert result_dict["Evaluated"] == 9
-        assert result_dict["Any-triggered True positives"] == 4
-        assert result_dict["Any-triggered True negatives"] == 3
-        assert result_dict["Any-triggered False positives"] == 1
-        assert result_dict["Any-triggered False negatives"] == 1
-        assert result_dict["Precision G1"] == 0.8
-        assert result_dict["Recall G1"] == 0.8
-        assert result_dict["F1 G1"] == 0.8
-        assert result_dict["Precision G3"] == 0.8
-        assert result_dict["Recall G3"] == 0.8
-        assert result_dict["F1 G3"] == 0.8
-
-        for guardrail in [2, 4, 5, 6, 7]:
-            for metric in ["Precision", "Recall", "F1"]:
-                key = f"{metric} G{guardrail}"
-                assert np.isnan(result_dict[key]) or result_dict[key] == 0.0
-
-    def test_for_csv(self, sample_results):
-        aggregate = AggregateResults(sample_results)
-        csv_data = aggregate.for_csv()
-
-        # Verify the structure is correct
-        assert isinstance(csv_data, list)
-        assert all(isinstance(item, dict) for item in csv_data)
-        assert all("property" in item and "value" in item for item in csv_data)
-
-        # Check a specific non-nan entry
-        precision_g1_entry = next(
-            (item for item in csv_data if item["property"] == "Precision G1"), None
-        )
-        assert precision_g1_entry is not None
-        assert precision_g1_entry["value"] == 0.8
-
     @pytest.fixture
-    def per_guardrail_results(self) -> list[EvaluationResult]:
+    def per_guardrail_eval_results(self) -> list[EvaluationResult]:
         """Fixture providing sample results for per-guardrail testing."""
         return [
-            # Case 1: Perfect match
             EvaluationResult(
                 question="Q1",
                 expected_triggered=True,
                 actual_triggered=True,
-                expected_exact='True | "1, 3"',
-                actual_exact='True | "1, 3"',
+                expected_guardrails={"g1": True, "g2": False, "g3": True},
+                actual_guardrails={"g1": True, "g2": False, "g3": True},
             ),
-            # Case 2: FP (predicted 4)
             EvaluationResult(
                 question="Q2",
                 expected_triggered=True,
                 actual_triggered=True,
-                expected_exact='True | "2"',
-                actual_exact='True | "2, 4"',  # Predicts 4 incorrectly
+                expected_guardrails={"g1": True, "g2": False, "g3": False},
+                actual_guardrails={"g1": True, "g2": True, "g3": False},
             ),
-            # Case 3: FN (missed 4)
             EvaluationResult(
                 question="Q3",
                 expected_triggered=True,
                 actual_triggered=True,
-                expected_exact='True | "4, 5"',
-                actual_exact='True | "5"',  # Misses 4
+                expected_guardrails={"g1": True, "g2": True, "g3": True},
+                actual_guardrails={"g1": True, "g2": True, "g3": False},
             ),
-            # Case 4: Both False
             EvaluationResult(
                 question="Q4",
                 expected_triggered=False,
                 actual_triggered=False,
-                expected_exact="False | None",
-                actual_exact="False | None",
+                expected_guardrails={"g1": False, "g2": False, "g3": False},
+                actual_guardrails={"g1": False, "g2": False, "g3": False},
             ),
-            # Case 5: Actual triggered when expected False (FP for guardrail 6)
             EvaluationResult(
                 question="Q5",
                 expected_triggered=False,
                 actual_triggered=True,
-                expected_exact="False | None",
-                actual_exact='True | "6"',
+                expected_guardrails={"g1": False, "g2": False, "g3": False},
+                actual_guardrails={"g1": True, "g2": False, "g3": False},
             ),
-            # Case 6: Expected triggered when actual False (FN for guardrail 7)
             EvaluationResult(
                 question="Q6",
                 expected_triggered=True,
                 actual_triggered=False,
-                expected_exact='True | "7"',
-                actual_exact="False | None",
+                expected_guardrails={"g1": False, "g2": True, "g3": False},
+                actual_guardrails={"g1": False, "g2": False, "g3": False},
             ),
         ]
 
-    def test_expected_actual_vectors(self, per_guardrail_results):
-        aggregate = AggregateResults(per_guardrail_results)
-        expected_vectors, actual_vectors = aggregate._expected_actual_vectors
+    def test_guardrail_names_discovery(self, per_guardrail_eval_results):
+        aggregate = AggregateResults(per_guardrail_eval_results)
+        assert aggregate.guardrail_names == ["g1", "g2", "g3"]
 
-        # Based on per_guardrail_results fixture
+    def test_expected_actual_vectors(self, per_guardrail_eval_results):
+        aggregate = AggregateResults(per_guardrail_eval_results)
+        expected_vectors, actual_vectors = aggregate._expected_actual_guardrails_vectors
+
         expected_ground_truth = [
-            [1, 0, 1, 0, 0, 0, 0],  # Q1: "1, 3"
-            [0, 1, 0, 0, 0, 0, 0],  # Q2: "2"
-            [0, 0, 0, 1, 1, 0, 0],  # Q3: "4, 5"
-            [0, 0, 0, 0, 0, 0, 0],  # Q4: False
-            [0, 0, 0, 0, 0, 0, 0],  # Q5: False
-            [0, 0, 0, 0, 0, 0, 1],  # Q6: "7"
+            [1, 0, 1],
+            [1, 0, 0],
+            [1, 1, 1],
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 1, 0],
         ]
         actual_predictions = [
-            [1, 0, 1, 0, 0, 0, 0],  # Q1: "1, 3"
-            [0, 1, 0, 1, 0, 0, 0],  # Q2: "2, 4"
-            [0, 0, 0, 0, 1, 0, 0],  # Q3: "5"
-            [0, 0, 0, 0, 0, 0, 0],  # Q4: False
-            [0, 0, 0, 0, 0, 1, 0],  # Q5: "6"
-            [0, 0, 0, 0, 0, 0, 0],  # Q6: False
+            [1, 0, 1],
+            [1, 1, 0],
+            [1, 1, 0],
+            [0, 0, 0],
+            [1, 0, 0],
+            [0, 0, 0],
         ]
 
         assert expected_vectors == expected_ground_truth
@@ -361,71 +231,106 @@ class TestAggregateResults:
 
     def test_expected_actual_vectors_empty(self):
         aggregate = AggregateResults([])
-        expected_vectors, actual_vectors = aggregate._expected_actual_vectors
+        assert aggregate.guardrail_names == []
+        expected_vectors, actual_vectors = aggregate._expected_actual_guardrails_vectors
         assert expected_vectors == []
         assert actual_vectors == []
 
-    def test_precision_per_guardrail(self, per_guardrail_results):
-        aggregate = AggregateResults(per_guardrail_results)
+    def test_precision_per_guardrail(self, per_guardrail_eval_results):
+        aggregate = AggregateResults(per_guardrail_eval_results)
         precision = aggregate.precision_per_guardrail()
-        # Expected precision based on _expected_actual_vectors:
-        # G1: TP=1, FP=0 -> P=1/(1+0)=1
-        # G2: TP=1, FP=0 -> P=1/(1+0)=1
-        # G3: TP=1, FP=0 -> P=1/(1+0)=1
-        # G4: TP=0, FP=1 -> P=0/(0+1)=0
-        # G5: TP=1, FP=0 -> P=1/(1+0)=1
-        # G6: TP=0, FP=1 -> P=0/(0+1)=0
-        # G7: TP=0, FP=0 -> P=nan (zero_division=np.nan)
-        expected_precision = [1.0, 1.0, 1.0, 0.0, 1.0, 0.0, np.nan]
-        # Use np.testing.assert_array_equal to handle NaN values properly
-        np.testing.assert_array_equal(precision, expected_precision)
+
+        # Calculate based on vectors: TP / (TP + FP)
+        # g1: TP=3 (Q1,Q2,Q3), FP=1 (Q5) -> P=3/4 = 0.75
+        # g2: TP=1 (Q3), FP=1 (Q2) -> P=1/2 = 0.5
+        # g3: TP=1 (Q1), FP=0 -> P=1/1 = 1.0
+        expected_precision = [0.75, 0.5, 1.0]
+        assert precision == approx(expected_precision)
 
     def test_precision_per_guardrail_empty(self):
         aggregate = AggregateResults([])
         precision = aggregate.precision_per_guardrail()
-        assert all(np.isnan(p) for p in precision)
-        assert len(precision) == 7
+        assert precision == []
 
-    def test_recall_per_guardrail(self, per_guardrail_results):
-        aggregate = AggregateResults(per_guardrail_results)
+    def test_recall_per_guardrail(self, per_guardrail_eval_results):
+        aggregate = AggregateResults(per_guardrail_eval_results)
         recall = aggregate.recall_per_guardrail()
-        # Expected recall based on _expected_actual_vectors:
-        # G1: TP=1, FN=0 -> R=1/(1+0)=1
-        # G2: TP=1, FN=0 -> R=1/(1+0)=1
-        # G3: TP=1, FN=0 -> R=1/(1+0)=1
-        # G4: TP=0, FN=1 -> R=0/(0+1)=0
-        # G5: TP=1, FN=0 -> R=1/(1+0)=1
-        # G6: TP=0, FN=0 -> R=nan (zero_division=np.nan)
-        # G7: TP=0, FN=1 -> R=0/(0+1)=0
-        expected_recall = [1.0, 1.0, 1.0, 0.0, 1.0, np.nan, 0.0]
-        # Use np.testing.assert_array_equal to handle NaN values properly
-        np.testing.assert_array_equal(recall, expected_recall)
+
+        # Calculate based on vectors: TP / (TP + FN)
+        # g1: TP=3 (Q1,Q2,Q3), FN=0 -> R = 3/3 = 1.0
+        # g2: TP=1 (Q3), FN=1 (Q6) -> R = 1/2 = 0.5
+        # g3: TP=1 (Q1), FN=1 (Q3) -> R = 1/2 = 0.5
+        expected_recall = [1.0, 0.5, 0.5]
+        assert recall == approx(expected_recall)
 
     def test_recall_per_guardrail_empty(self):
         aggregate = AggregateResults([])
         recall = aggregate.recall_per_guardrail()
-        assert all(np.isnan(r) for r in recall)
-        assert len(recall) == 7
+        assert recall == []
 
-    def test_f1_per_guardrail(self, per_guardrail_results):
-        aggregate = AggregateResults(per_guardrail_results)
+    def test_f1_per_guardrail(self, per_guardrail_eval_results):
+        aggregate = AggregateResults(per_guardrail_eval_results)
         f1 = aggregate.f1_per_guardrail()
-        # Expected F1 based on precision and recall above:
-        # G1: P=1, R=1 -> F1=2*(1*1)/(1+1)=1
-        # G2: P=1, R=1 -> F1=1
-        # G3: P=1, R=1 -> F1=1
-        # G4: P=0, R=0 -> F1=0
-        # G5: P=1, R=1 -> F1=1
-        # G6: P=0, R=nan -> F1=0
-        # G7: P=nan, R=0 -> F1=0
-        expected_f1 = [1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0]
-        np.testing.assert_array_equal(f1, expected_f1)
+
+        # Calculate F1 = 2 * (P * R) / (P + R)
+        # g1: P=0.75, R=1.0 -> F1 = 2 * (0.75 * 1.0) / (0.75 + 1.0) = 1.5 / 1.75 = 6/7
+        # g2: P=0.5, R=0.5 -> F1 = 2 * (0.5 * 0.5) / (0.5 + 0.5) = 0.5 / 1.0 = 0.5
+        # g3: P=1.0, R=0.5 -> F1 = 2 * (1.0 * 0.5) / (1.0 + 0.5) = 1.0 / 1.5 = 2/3
+        expected_f1 = [6 / 7, 0.5, 2 / 3]
+        assert f1 == approx(expected_f1)
 
     def test_f1_per_guardrail_empty(self):
         aggregate = AggregateResults([])
         f1 = aggregate.f1_per_guardrail()
-        assert all(np.isnan(f) for f in f1)
-        assert len(f1) == 7
+        assert f1 == []
+
+    def test_to_dict(self, per_guardrail_eval_results):
+        aggregate = AggregateResults(per_guardrail_eval_results)
+        assert aggregate.to_dict() == {
+            "Evaluated": 6,
+            "Any-triggered False negatives": 1,
+            "Any-triggered False positives": 1,
+            "Any-triggered Precision": 0.75,
+            "Any-triggered Recall": 0.75,
+            "Any-triggered True negatives": 1,
+            "Any-triggered True positives": 3,
+            "F1 [g1]": 6 / 7,
+            "F1 [g2]": 0.5,
+            "F1 [g3]": 2 / 3,
+            "Precision [g1]": 0.75,
+            "Precision [g2]": 0.5,
+            "Precision [g3]": 1.0,
+            "Recall [g1]": 1.0,
+            "Recall [g2]": 0.5,
+            "Recall [g3]": 0.5,
+        }
+
+    def test_for_csv(self, per_guardrail_eval_results):
+        aggregate = AggregateResults(per_guardrail_eval_results)
+        expected_csv = [
+            {"property": k, "value": v} for k, v in aggregate.to_dict().items()
+        ]
+
+        assert aggregate.for_csv() == expected_csv
+
+        assert aggregate.for_csv() == [
+            {"property": "Evaluated", "value": len(per_guardrail_eval_results)},
+            {"property": "Any-triggered Precision", "value": 0.75},
+            {"property": "Any-triggered Recall", "value": 0.75},
+            {"property": "Any-triggered True positives", "value": 3},
+            {"property": "Any-triggered True negatives", "value": 1},
+            {"property": "Any-triggered False positives", "value": 1},
+            {"property": "Any-triggered False negatives", "value": 1},
+            {"property": "Precision [g1]", "value": 0.75},
+            {"property": "Recall [g1]", "value": 1.0},
+            {"property": "F1 [g1]", "value": 6 / 7},
+            {"property": "Precision [g2]", "value": 0.5},
+            {"property": "Recall [g2]", "value": 0.5},
+            {"property": "F1 [g2]", "value": 0.5},
+            {"property": "Precision [g3]", "value": 1.0},
+            {"property": "Recall [g3]", "value": 0.5},
+            {"property": "F1 [g3]", "value": 2 / 3},
+        ]
 
 
 @pytest.fixture
@@ -436,29 +341,29 @@ def mock_evaluation_data_file(tmp_path):
             "question": "Question 1",
             "expected_triggered": True,
             "actual_triggered": True,
-            "expected_exact": 'True | "1"',
-            "actual_exact": 'True | "1"',
+            "expected_guardrails": {"g1": True, "g2": False},
+            "actual_guardrails": {"g1": True, "g2": False},
         },
         {
             "question": "Question 2",
             "expected_triggered": True,
             "actual_triggered": False,
-            "expected_exact": 'True | "2"',
-            "actual_exact": "False | None",
+            "expected_guardrails": {"g1": False, "g2": True},
+            "actual_guardrails": {"g1": False, "g2": False},
         },
         {
             "question": "Question 3",
             "expected_triggered": False,
             "actual_triggered": False,
-            "expected_exact": "False | None",
-            "actual_exact": "False | None",
+            "expected_guardrails": {"g1": False, "g2": False},
+            "actual_guardrails": {"g1": False, "g2": False},
         },
         {
             "question": "Question 4",
             "expected_triggered": False,
             "actual_triggered": True,
-            "expected_exact": "False | None",
-            "actual_exact": 'True | "3"',
+            "expected_guardrails": {"g1": False, "g2": False},
+            "actual_guardrails": {"g1": True, "g2": False},
         },
     ]
 
@@ -472,6 +377,7 @@ def mock_evaluation_data_file(tmp_path):
 def test_evaluate_and_output_results_writes_results(
     mock_project_root, mock_evaluation_data_file
 ):
+    """Check if results.csv is created with expected columns."""
     evaluate_and_output_results(mock_project_root, mock_evaluation_data_file)
     results_file = mock_project_root / "results.csv"
 
@@ -509,79 +415,3 @@ def test_evaluate_and_output_results_prints_aggregates(
     captured = caplog.text
     assert "Aggregate Results" in captured
     assert re.search(r"Evaluated\s+\d+", captured)
-
-
-class TestGuardrailParseResult:
-    @pytest.mark.parametrize(
-        "exact_str, expected_triggered, expected_numbers, expected_warning_parts",
-        [
-            (
-                'True | "1, 3"',
-                True,
-                [1, 3],
-                [],
-            ),
-            (
-                "False | None",
-                False,
-                [],
-                [],
-            ),
-            # Duplicate number (1) and out of range numbers (0 and 9)
-            (
-                'True | "1, 1, 0, 9, 2"',
-                True,
-                [1, 2],
-                [
-                    "Removed duplicate numbers: [1]",
-                    "Removed numbers outside the valid range",
-                ],
-            ),
-            # Triggered == True but no guardrail numbers supplied -> returns is_triggered False
-            (
-                "True | None",
-                False,
-                [],
-                ["Triggered == True but no guardrail numbers supplied."],
-            ),
-            # Triggered == False but guardrail numbers supplied
-            (
-                'False | "1"',
-                False,
-                [],
-                ["Triggered == False but expected literal 'None'."],
-            ),
-            # Completely invalid format
-            (
-                "Unexpected format string",
-                False,
-                [],
-                [
-                    "String does not match expected format 'True | \"1,2\"' or 'False | None'."
-                ],
-            ),
-        ],
-    )
-    def test_parse(
-        self, exact_str, expected_triggered, expected_numbers, expected_warning_parts
-    ):
-        result = GuardrailParseResult.parse(exact_str, NUM_GUARDRAILS)
-
-        assert result.is_triggered is expected_triggered
-        assert result.valid_numbers == expected_numbers
-
-        for expected_part in expected_warning_parts:
-            assert any(expected_part in warning for warning in result.warnings), (
-                f"Expected warning containing '{expected_part}' not found in {result.warnings}"
-            )
-
-    def test_to_vector(self):
-        exact_str = 'True | "2, 4"'
-        parse_result = GuardrailParseResult.parse(exact_str, NUM_GUARDRAILS)
-
-        expected_vector = [0, 1, 0, 1, 0, 0, 0]
-        assert parse_result.to_vector(NUM_GUARDRAILS) == expected_vector
-
-        exact_str_false = "False | None"
-        parse_result_false = GuardrailParseResult.parse(exact_str_false, NUM_GUARDRAILS)
-        assert parse_result_false.to_vector(NUM_GUARDRAILS) == [0] * NUM_GUARDRAILS

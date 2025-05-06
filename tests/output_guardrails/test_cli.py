@@ -64,15 +64,15 @@ def mock_data_generation(mocker):
             question="Question",
             expected_triggered=True,
             actual_triggered=True,
-            expected_exact="True | None",
-            actual_exact="True | None",
+            expected_guardrails={"appropriate_language": True},
+            actual_guardrails={"appropriate_language": True},
         ),
         EvaluationResult(
             question="Question",
             expected_triggered=False,
             actual_triggered=False,
-            expected_exact="False | None",
-            actual_exact="False | None",
+            expected_guardrails={"appropriate_language": False},
+            actual_guardrails={"appropriate_language": False},
         ),
     ]
 

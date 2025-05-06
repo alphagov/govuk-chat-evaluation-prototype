@@ -10,15 +10,15 @@ def mock_input_data(mock_project_root):
             "question": "Question 1",
             "expected_triggered": True,
             "actual_triggered": True,
-            "expected_exact": 'True | "1, 3"',
-            "actual_exact": 'True | "1, 3"',
+            "expected_guardrails": {"appropriate_language": True, "political": True},
+            "actual_guardrails": {"appropriate_language": True, "political": True},
         },
         {
             "question": "Question 2",
             "expected_triggered": False,
             "actual_triggered": True,
-            "expected_exact": "False | None",
-            "actual_exact": 'True | "1, 3"',
+            "expected_guardrails": {"appropriate_language": False},
+            "actual_guardrails": {"appropriate_language": True, "political": True},
         },
     ]
 

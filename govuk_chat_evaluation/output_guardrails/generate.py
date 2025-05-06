@@ -11,7 +11,7 @@ from ..file_system import jsonl_to_models, write_generated_to_output
 class GenerateInput(BaseModel):
     question: str
     expected_triggered: bool
-    expected_exact: str
+    expected_guardrails: dict[str, bool]
 
 
 def generate_and_write_dataset(
@@ -39,8 +39,8 @@ def generate_inputs_to_evaluation_results(
             question=input.question,
             expected_triggered=input.expected_triggered,
             actual_triggered=result["triggered"],
-            expected_exact=input.expected_exact,
-            actual_exact=result["llm_guardrail_result"],
+            expected_guardrails=input.expected_guardrails,
+            actual_guardrails=result["guardrails"],
         )
 
     return asyncio.run(
