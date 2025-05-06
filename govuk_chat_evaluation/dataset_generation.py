@@ -58,7 +58,8 @@ async def generate_dataset(
     for future in tqdm.as_completed(tasks, total=len(tasks)):
         try:
             evaluation = await future
-            evaluations.append(evaluation)
+            if evaluation is not None:
+                evaluations.append(evaluation)
         except Exception as e:
             # Cancel all remaining tasks to ensure clean termination
             for task in tasks:
