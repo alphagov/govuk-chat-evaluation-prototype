@@ -13,7 +13,6 @@ Install [uv](https://docs.astral.sh/uv/) to get started.
 ### Dependencies
 
 Run `uv sync` to install dependencies.  
-Run `uv pip install -e .` to install the executable.
 
 ### Usage
 
