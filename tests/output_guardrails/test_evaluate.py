@@ -243,3 +243,15 @@ def test_evaluate_and_output_results_prints_aggregates(
 
     assert "Aggregate Results" in caplog.text
     assert re.search(r"Evaluated\s+\d+", caplog.text)
+
+
+def test_evaluate_and_output_results_copes_with_empty_data(
+    mock_project_root, tmp_path, caplog
+):
+    caplog.set_level(logging.ERROR)
+    file_path = tmp_path / "evaluation_data.jsonl"
+    file_path.touch()
+
+    evaluate_and_output_results(mock_project_root, file_path)
+
+    assert "There is no data to evaluate" in caplog.text
