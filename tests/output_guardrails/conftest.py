@@ -8,13 +8,17 @@ def mock_input_data(mock_project_root):
     data = [
         {
             "question": "Question 1",
-            "expected_outcome": True,
-            "actual_outcome": True,
+            "expected_triggered": True,
+            "actual_triggered": True,
+            "expected_guardrails": {"appropriate_language": True, "political": True},
+            "actual_guardrails": {"appropriate_language": True, "political": True},
         },
         {
             "question": "Question 2",
-            "expected_outcome": False,
-            "actual_outcome": True,
+            "expected_triggered": False,
+            "actual_triggered": True,
+            "expected_guardrails": {"appropriate_language": False},
+            "actual_guardrails": {"appropriate_language": True, "political": True},
         },
     ]
 
