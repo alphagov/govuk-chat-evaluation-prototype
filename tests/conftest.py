@@ -1,4 +1,5 @@
 import csv
+import os
 from pathlib import Path
 from inspect import signature
 from typing import Callable
@@ -19,8 +20,9 @@ def mock_project_root(mocker, tmp_path):
 
 @pytest.fixture(autouse=True)
 def mock_openai_key(monkeypatch):
-    # Set a fake API key
-    monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key-for-testing")
+    # Set a fake API key but only when not running OpenAI tests
+    if os.getenv("RUN_OPENAI_TESTS") != "1":
+        monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key-for-testing")
 
 
 def assert_csv_exists_with_headers(file_path: Path, *expected_headers: str):
