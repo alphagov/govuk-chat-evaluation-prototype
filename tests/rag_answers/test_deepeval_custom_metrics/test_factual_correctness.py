@@ -1,7 +1,10 @@
 import pytest
 import math
 import json
+import os
+
 from unittest.mock import Mock, AsyncMock, MagicMock, patch
+from deepeval import assert_test
 from deepeval.test_case import LLMTestCase
 from deepeval.models import GPTModel, DeepEvalBaseLLM
 from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness import (
@@ -479,3 +482,113 @@ class TestFactualCorrectnessHelperMethods:
 
         metric.error = "Some error"
         assert metric.is_successful() is False
+
+
+# -------- DeepEval metrics tests --------
+
+
+run_openai_tests = os.getenv("RUN_OPENAI_TESTS") == "1"
+# to run the tests, set the environment variable RUN_OPENAI_TESTS=1
+# to run these tests:
+# RUN_OPENAI_TESTS=1 uv run pytest
+
+if run_openai_tests:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "RUN_OPENAI_TESTS is set, but OPENAI_API_KEY is not defined."
+        )
+
+
+test_1 = (
+    LLMTestCase(
+        expected_output="Pigs oink. Dogs bark.",
+        actual_output="Pigs oink and dogs bark.",
+        input="What noise do pigs and dogs do?",
+    ),
+    2 / 2,
+)
+
+test_2 = (
+    LLMTestCase(
+        expected_output="Pigs oink. Dogs bark.",
+        actual_output="Pigs oink, dogs bark and cats meow.",
+        input="What noise do pigs and dogs do?",
+    ),
+    2 / 3,
+)
+
+test_3 = (
+    LLMTestCase(
+        expected_output="Pigs oink. Dogs bark.",
+        actual_output="Dogs bark and cats meow.",
+        input="What noise do pigs and dogs do?",
+    ),
+    1 / 2,
+)
+
+test_4 = (
+    LLMTestCase(
+        expected_output="Pigs oink. Dogs bark.",
+        actual_output="Dogs don't bark.",
+        input="What noise do pigs and dogs do?",
+    ),
+    0 / 3,
+)
+
+test_5 = (
+    LLMTestCase(
+        expected_output="Pigs oink. Dogs bark.",
+        actual_output="Dogs don't bark and pigs oink.",
+        input="What noise do pigs and dogs do?",
+    ),
+    1 / 2,
+)
+
+test_6 = (
+    LLMTestCase(
+        expected_output="Pigs oink. Dogs bark.",
+        actual_output="Dogs don't bark and are cute.",
+        input="What noise do pigs and dogs do?",
+    ),
+    0 / 2,
+)
+
+test_7 = (
+    LLMTestCase(
+        expected_output="Pigs oink. Dogs bark.",
+        actual_output="Dogs bark and are cute.",
+        input="What noise do pigs and dogs do?",
+    ),
+    1 / 2,
+)
+
+
+@pytest.mark.skipif("not run_openai_tests", reason="openai is expensive")
+@pytest.mark.parametrize(
+    "llm_test_case, expected_score",
+    [test_1, test_2, test_3, test_4, test_5, test_6, test_7],
+)
+def test_factual_correctness_score(llm_test_case, expected_score):
+    correctness_metric = FactualCorrectnessMetric(
+        model=GPTModel(model="gpt-4o", temperature=0),
+        include_reason=False,
+        async_mode=False,
+    )
+    computed_score = correctness_metric.measure(llm_test_case)
+    assert computed_score == expected_score
+
+
+@pytest.mark.skipif("not run_openai_tests", reason="openai is expensive")
+def test_factual_correctness_deepeval():
+    test_case = LLMTestCase(
+        input="What noise do pigs and dogs do?",
+        actual_output="Pigs oink and dogs bark.",
+        expected_output="Pigs oink. Dogs bark.",
+    )
+    metric = FactualCorrectnessMetric(
+        model=GPTModel(model="gpt-4o", temperature=0),
+        include_reason=False,
+        async_mode=False,
+    )
+    assert_test(test_case, [metric])
