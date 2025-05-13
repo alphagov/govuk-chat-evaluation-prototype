@@ -45,7 +45,7 @@ class FactualCorrectnessMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.evaluation_template = evaluation_template
-        self.evaluation_cost = 0 if self.using_native_model else float("nan")
+        self.evaluation_cost = 0 if self.using_native_model else None
         self.confusion_matrix: Optional[ClassifiedFacts] = None
 
     def measure(self, test_case: LLMTestCase) -> float:
@@ -114,7 +114,7 @@ class FactualCorrectnessMetric(BaseMetric):
                 prompt, schema=FactClassificationResult
             )
             if isinstance(cost, (int, float)):
-                self.evaluation_cost = (self.evaluation_cost or 0.0) + float(cost)
+                self.evaluation_cost = (self.evaluation_cost or 0.0) + cost
             return res.classified_facts  # type: ignore[arg-type]
         else:
             try:
@@ -140,7 +140,7 @@ class FactualCorrectnessMetric(BaseMetric):
         if self.using_native_model:
             res, cost = self.model.generate(prompt, schema=FactClassificationResult)
             if isinstance(cost, (int, float)):
-                self.evaluation_cost = (self.evaluation_cost or 0.0) + float(cost)
+                self.evaluation_cost = (self.evaluation_cost or 0.0) + cost
             return res.classified_facts  # type: ignore[arg-type]
         else:
             try:

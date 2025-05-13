@@ -77,7 +77,7 @@ class TestFactualCorrectnessInitialization:
         assert metric.using_native_model is False
         assert metric.evaluation_model == "a-non-native-model"
         assert metric.evaluation_cost != 0
-        assert metric.evaluation_cost is not None and math.isnan(metric.evaluation_cost)
+        assert metric.evaluation_cost is None
 
     @pytest.mark.parametrize(
         "strict_mode, threshold, include_reason, async_mode, expected_threshold, expected_include_reason, expected_async_mode",
@@ -201,7 +201,7 @@ class TestFactualCorrectnessClassification:
 
         assert result.TP == ["fact1"]
         assert result.FP == ["fact2"]
-        assert metric.evaluation_cost != 0.5  # should remain NaN
+        assert metric.evaluation_cost is None  # should remain None
         mock_non_native_model.generate.assert_called_once_with(
             "mocked_prompt", schema=FactClassificationResult
         )
@@ -283,7 +283,7 @@ class TestFactualCorrectnessClassification:
 
         assert result.TP == ["fact1"]
         assert result.FP == ["fact2"]
-        assert metric.evaluation_cost != 0.5  # should remain NaN
+        assert metric.evaluation_cost is None  # should remain None
         assert isinstance(result, ClassifiedFacts)
         mock_non_native_model.a_generate.assert_awaited_once_with(
             "mocked_prompt", schema=FactClassificationResult
