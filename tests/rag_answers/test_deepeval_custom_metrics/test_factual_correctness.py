@@ -16,18 +16,18 @@ from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctne
 
 
 @pytest.fixture
-def mock_gpt_model():
-    """Fixture for a mock GPT model"""
+def mock_native_model():
+    """Fixture for a mock native model as GPT model"""
     mock = Mock(spec=GPTModel)
     mock.get_model_name.return_value = "gpt-4o"
     return mock
 
 
 @pytest.fixture
-def mock_non_gpt_model():
-    """Fixture for a mock non-GPT model"""
+def mock_non_native_model():
+    """Fixture for a mock non-native model"""
     mock = Mock(spec=DeepEvalBaseLLM)
-    mock.get_model_name.return_value = "a-non-gpt-model"
+    mock.get_model_name.return_value = "a-non-native-model"
     return mock
 
 
@@ -64,18 +64,18 @@ def fact_classification_result():
 class TestFactualCorrectnessInitialization:
     """Tests for FactualCorrectnessMetric initialization"""
 
-    def test_initialization_with_gptmodel(self, mock_gpt_model):
-        metric = FactualCorrectnessMetric(model=mock_gpt_model)
+    def test_initialization_with_native_model(self, mock_native_model):
+        metric = FactualCorrectnessMetric(model=mock_native_model)
 
-        assert metric.using_gpt_model is True
+        assert metric.using_native_model is True
         assert metric.evaluation_model == "gpt-4o"
         assert metric.evaluation_cost == 0
 
-    def test_initialization_with_non_gptmodel(self, mock_non_gpt_model):
-        metric = FactualCorrectnessMetric(model=mock_non_gpt_model)
+    def test_initialization_with_non_native_model(self, mock_non_native_model):
+        metric = FactualCorrectnessMetric(model=mock_non_native_model)
 
-        assert metric.using_gpt_model is False
-        assert metric.evaluation_model == "a-non-gpt-model"
+        assert metric.using_native_model is False
+        assert metric.evaluation_model == "a-non-native-model"
         assert metric.evaluation_cost != 0
         assert metric.evaluation_cost is not None and math.isnan(metric.evaluation_cost)
 
@@ -122,7 +122,7 @@ class TestFactualCorrectnessInitialization:
     )
     def test_initialization_all_parameters(
         self,
-        mock_gpt_model,
+        mock_native_model,
         strict_mode,
         threshold,
         include_reason,
@@ -132,7 +132,7 @@ class TestFactualCorrectnessInitialization:
         expected_async_mode,
     ):
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model,
+            model=mock_native_model,
             threshold=threshold,
             include_reason=include_reason,
             async_mode=async_mode,
@@ -147,14 +147,14 @@ class TestFactualCorrectnessInitialization:
 class TestFactualCorrectnessClassification:
     """Tests for statement classification functionality"""
 
-    def test_custom_template_is_used(self, mock_gpt_model, mock_template):
-        mock_gpt_model.generate.return_value = (
+    def test_custom_template_is_used(self, mock_native_model, mock_template):
+        mock_native_model.generate.return_value = (
             Mock(classified_facts="mocked_facts"),
             0.01,
         )
 
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model,
+            model=mock_native_model,
             evaluation_template=mock_template,  # type: ignore
         )
 
@@ -166,13 +166,13 @@ class TestFactualCorrectnessClassification:
 
         assert result == "mocked_facts"
 
-    def test_classify_statements_using_gpt_model(
-        self, mock_gpt_model, fact_classification_result, mock_template
+    def test_classify_statements_using_native_model(
+        self, mock_native_model, fact_classification_result, mock_template
     ):
-        mock_gpt_model.generate.return_value = (fact_classification_result, 0.5)
+        mock_native_model.generate.return_value = (fact_classification_result, 0.5)
 
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model, evaluation_template=mock_template, async_mode=False
+            model=mock_native_model, evaluation_template=mock_template, async_mode=False
         )  # type: ignore
         result = metric._classify_statements("actual", "expected")
 
@@ -180,20 +180,20 @@ class TestFactualCorrectnessClassification:
         assert result.TP == ["fact1"]
         assert result.FP == ["fact2"]
         assert metric.evaluation_cost == 0.5
-        mock_gpt_model.generate.assert_called_once_with(
+        mock_native_model.generate.assert_called_once_with(
             "mocked_prompt", schema=FactClassificationResult
         )
         mock_template.classify_facts.assert_called_once_with(
             answer="actual", ground_truth="expected"
         )
 
-    def test_classify_statements_non_gpt_success(
-        self, mock_non_gpt_model, fact_classification_result, mock_template
+    def test_classify_statements_non_native_success(
+        self, mock_non_native_model, fact_classification_result, mock_template
     ):
-        mock_non_gpt_model.generate.return_value = fact_classification_result
+        mock_non_native_model.generate.return_value = fact_classification_result
 
         metric = FactualCorrectnessMetric(
-            model=mock_non_gpt_model,
+            model=mock_non_native_model,
             evaluation_template=mock_template,
             async_mode=False,
         )  # type: ignore
@@ -202,25 +202,25 @@ class TestFactualCorrectnessClassification:
         assert result.TP == ["fact1"]
         assert result.FP == ["fact2"]
         assert metric.evaluation_cost != 0.5  # should remain NaN
-        mock_non_gpt_model.generate.assert_called_once_with(
+        mock_non_native_model.generate.assert_called_once_with(
             "mocked_prompt", schema=FactClassificationResult
         )
 
     @patch(
         "govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness.trimAndLoadJson"
     )
-    def test_classify_statements_non_gpt_typeerror(
-        self, mock_trim, mock_non_gpt_model, mock_template
+    def test_classify_statements_non_native_typeerror(
+        self, mock_trim, mock_non_native_model, mock_template
     ):
         mock_trim.return_value = {"classified_facts": {"TP": [], "FP": [], "FN": []}}
 
-        mock_non_gpt_model.generate.side_effect = [
+        mock_non_native_model.generate.side_effect = [
             TypeError("wrong formatted json"),
             '{"classified_facts": {"TP": [], "FP": [], "FN": []}}',
         ]
 
         metric = FactualCorrectnessMetric(
-            model=mock_non_gpt_model, evaluation_template=mock_template
+            model=mock_non_native_model, evaluation_template=mock_template
         )  # type: ignore
         result = metric._classify_statements("actual", "expected")
 
@@ -228,13 +228,13 @@ class TestFactualCorrectnessClassification:
         assert result.TP == []
         mock_trim.assert_called_once()
 
-    def test_classify_statements_non_gpt_general_exception(
-        self, mock_non_gpt_model, mock_template
+    def test_classify_statements_non_native_general_exception(
+        self, mock_non_native_model, mock_template
     ):
-        mock_non_gpt_model.generate.side_effect = Exception("unexpected")
+        mock_non_native_model.generate.side_effect = Exception("unexpected")
 
         metric = FactualCorrectnessMetric(
-            model=mock_non_gpt_model, evaluation_template=mock_template
+            model=mock_non_native_model, evaluation_template=mock_template
         )  # type: ignore
         result = metric._classify_statements("actual", "expected")
 
@@ -243,15 +243,15 @@ class TestFactualCorrectnessClassification:
         assert result.FP == []
 
     @pytest.mark.asyncio
-    async def test_a_classify_statements_using_gpt_model(
-        self, mock_gpt_model, fact_classification_result, mock_template
+    async def test_a_classify_statements_using_native_model(
+        self, mock_native_model, fact_classification_result, mock_template
     ):
-        mock_gpt_model.a_generate = AsyncMock(
+        mock_native_model.a_generate = AsyncMock(
             return_value=(fact_classification_result, 0.5)
         )
 
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model, evaluation_template=mock_template, async_mode=True
+            model=mock_native_model, evaluation_template=mock_template, async_mode=True
         )  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
@@ -259,7 +259,7 @@ class TestFactualCorrectnessClassification:
         assert result.TP == ["fact1"]
         assert result.FP == ["fact2"]
         assert metric.evaluation_cost == 0.5
-        mock_gpt_model.a_generate.assert_awaited_once_with(
+        mock_native_model.a_generate.assert_awaited_once_with(
             "mocked_prompt", schema=FactClassificationResult
         )
         mock_template.classify_facts.assert_called_once_with(
@@ -267,15 +267,17 @@ class TestFactualCorrectnessClassification:
         )
 
     @pytest.mark.asyncio
-    async def test_a_classify_statements_non_gpt_success(
-        self, mock_non_gpt_model, fact_classification_result, mock_template
+    async def test_a_classify_statements_non_native_success(
+        self, mock_non_native_model, fact_classification_result, mock_template
     ):
-        mock_non_gpt_model.a_generate = AsyncMock(
+        mock_non_native_model.a_generate = AsyncMock(
             return_value=fact_classification_result
         )
 
         metric = FactualCorrectnessMetric(
-            model=mock_non_gpt_model, evaluation_template=mock_template, async_mode=True
+            model=mock_non_native_model,
+            evaluation_template=mock_template,
+            async_mode=True,
         )  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
@@ -283,7 +285,7 @@ class TestFactualCorrectnessClassification:
         assert result.FP == ["fact2"]
         assert metric.evaluation_cost != 0.5  # should remain NaN
         assert isinstance(result, ClassifiedFacts)
-        mock_non_gpt_model.a_generate.assert_awaited_once_with(
+        mock_non_native_model.a_generate.assert_awaited_once_with(
             "mocked_prompt", schema=FactClassificationResult
         )
 
@@ -291,20 +293,22 @@ class TestFactualCorrectnessClassification:
     @patch(
         "govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness.trimAndLoadJson"
     )
-    async def test_a_classify_statements_non_gpt_typeerror(
-        self, mock_trim, mock_non_gpt_model, mock_template
+    async def test_a_classify_statements_non_native_typeerror(
+        self, mock_trim, mock_non_native_model, mock_template
     ):
         mock_trim.return_value = {"classified_facts": {"TP": [], "FP": [], "FN": []}}
 
         # set up the mock to raise TypeError on first call, then return a string on second call
-        mock_non_gpt_model.a_generate = AsyncMock()
-        mock_non_gpt_model.a_generate.side_effect = [
+        mock_non_native_model.a_generate = AsyncMock()
+        mock_non_native_model.a_generate.side_effect = [
             TypeError("wrong formatted json"),
             '{"classified_facts": {"TP": [], "FP": [], "FN": []}}',
         ]
 
         metric = FactualCorrectnessMetric(
-            model=mock_non_gpt_model, evaluation_template=mock_template, async_mode=True
+            model=mock_non_native_model,
+            evaluation_template=mock_template,
+            async_mode=True,
         )  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
@@ -313,14 +317,18 @@ class TestFactualCorrectnessClassification:
         mock_trim.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_a_classify_statements_non_gpt_general_exception(
-        self, mock_non_gpt_model, mock_template
+    async def test_a_classify_statements_non_native_general_exception(
+        self, mock_non_native_model, mock_template
     ):
         # set up the mock to raise an exception
-        mock_non_gpt_model.a_generate = AsyncMock(side_effect=Exception("unexpected"))
+        mock_non_native_model.a_generate = AsyncMock(
+            side_effect=Exception("unexpected")
+        )
 
         metric = FactualCorrectnessMetric(
-            model=mock_non_gpt_model, evaluation_template=mock_template, async_mode=True
+            model=mock_non_native_model,
+            evaluation_template=mock_template,
+            async_mode=True,
         )  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
@@ -333,10 +341,13 @@ class TestFactualCorrectnessMeasureMethods:
     """Tests for the measure/a_measure functionality"""
 
     def test_measure_sync_valid_confusion_matrix(
-        self, mock_gpt_model, test_case, sample_classified_facts
+        self, mock_native_model, test_case, sample_classified_facts
     ):
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model, threshold=0.7, include_reason=True, async_mode=False
+            model=mock_native_model,
+            threshold=0.7,
+            include_reason=True,
+            async_mode=False,
         )
 
         metric._classify_statements = Mock(return_value=sample_classified_facts)
@@ -349,9 +360,12 @@ class TestFactualCorrectnessMeasureMethods:
         metric._classify_statements.assert_called_once_with("Actual", "Expected")
         assert metric.reason is not None
 
-    def test_measure_sync_none_confusion_matrix(self, mock_gpt_model, test_case):
+    def test_measure_sync_none_confusion_matrix(self, mock_native_model, test_case):
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model, threshold=0.7, include_reason=True, async_mode=False
+            model=mock_native_model,
+            threshold=0.7,
+            include_reason=True,
+            async_mode=False,
         )
 
         metric._classify_statements = Mock(return_value=None)
@@ -365,14 +379,14 @@ class TestFactualCorrectnessMeasureMethods:
 
     @pytest.mark.asyncio
     async def test_a_measure_async(
-        self, mock_gpt_model, test_case, sample_classified_facts
+        self, mock_native_model, test_case, sample_classified_facts
     ):
-        mock_gpt_model.a_generate = AsyncMock(
+        mock_native_model.a_generate = AsyncMock(
             return_value=(Mock(classified_facts="mocked_facts"), 0.01)
         )
 
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model, threshold=0.7, include_reason=True, async_mode=True
+            model=mock_native_model, threshold=0.7, include_reason=True, async_mode=True
         )
 
         metric._a_classify_statements = AsyncMock(return_value=sample_classified_facts)
@@ -382,8 +396,8 @@ class TestFactualCorrectnessMeasureMethods:
         assert result == 0.8
         metric._a_classify_statements.assert_awaited_once_with("Actual", "Expected")
 
-    def test_measure_routes_to_async(self, mock_gpt_model, test_case):
-        metric = FactualCorrectnessMetric(model=mock_gpt_model, async_mode=True)
+    def test_measure_routes_to_async(self, mock_native_model, test_case):
+        metric = FactualCorrectnessMetric(model=mock_native_model, async_mode=True)
 
         metric.a_measure = AsyncMock(return_value=0.9)
 
@@ -398,9 +412,9 @@ class TestFactualCorrectnessMeasureMethods:
 class TestFactualCorrectnessHelperMethods:
     """Tests for helper methods of the FactualCorrectnessMetric class"""
 
-    def test_finalise_evaluation_valid(self, mock_gpt_model):
+    def test_finalise_evaluation_valid(self, mock_native_model):
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model, threshold=0.7, include_reason=True
+            model=mock_native_model, threshold=0.7, include_reason=True
         )
 
         # Create a mock confusion matrix
@@ -418,9 +432,9 @@ class TestFactualCorrectnessHelperMethods:
         )
         assert metric.success is True
 
-    def test_finalise_evaluation_invalid(self, mock_gpt_model):
+    def test_finalise_evaluation_invalid(self, mock_native_model):
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model, threshold=0.7, include_reason=True
+            model=mock_native_model, threshold=0.7, include_reason=True
         )
 
         # Set confusion matrix to None
@@ -432,9 +446,9 @@ class TestFactualCorrectnessHelperMethods:
         assert metric.reason is None
         assert metric.success is None
 
-    def test_generate_reason(self, mock_gpt_model):
+    def test_generate_reason(self, mock_native_model):
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model, threshold=0.7, include_reason=True
+            model=mock_native_model, threshold=0.7, include_reason=True
         )
 
         # Create a mock confusion matrix
@@ -456,9 +470,9 @@ class TestFactualCorrectnessHelperMethods:
             # handle the case where result is None, if necessary
             assert False, "Result is None"
 
-    def test_calculate_score(self, mock_gpt_model, sample_classified_facts):
+    def test_calculate_score(self, mock_native_model, sample_classified_facts):
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model, threshold=0.7, include_reason=True
+            model=mock_native_model, threshold=0.7, include_reason=True
         )
 
         metric.confusion_matrix = sample_classified_facts
@@ -469,9 +483,9 @@ class TestFactualCorrectnessHelperMethods:
         result = metric._calculate_score()
         assert result == 0.0
 
-    def test_is_successful(self, mock_gpt_model):
+    def test_is_successful(self, mock_native_model):
         metric = FactualCorrectnessMetric(
-            model=mock_gpt_model, threshold=0.7, include_reason=True
+            model=mock_native_model, threshold=0.7, include_reason=True
         )
 
         metric.success = True

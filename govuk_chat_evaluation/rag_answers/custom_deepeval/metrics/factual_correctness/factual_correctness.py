@@ -4,8 +4,12 @@ from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 from deepeval.metrics import BaseMetric
 from deepeval.utils import get_or_create_event_loop
 
-from deepeval.metrics.utils import check_llm_test_case_params, trimAndLoadJson
-from deepeval.models import GPTModel, DeepEvalBaseLLM
+from deepeval.metrics.utils import (
+    check_llm_test_case_params,
+    trimAndLoadJson,
+    initialize_model,
+)
+from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
 from deepeval.telemetry import capture_metric_type
 
@@ -34,15 +38,14 @@ class FactualCorrectnessMetric(BaseMetric):
             FactualCorrectnessTemplate
         ] = FactualCorrectnessTemplate,
     ):
-        self.using_gpt_model = isinstance(model, GPTModel)
-        self.model = model
+        self.model, self.using_native_model = initialize_model(model)
         self.threshold = 0 if strict_mode else threshold
         self.evaluation_model = self.model.get_model_name()
         self.include_reason = include_reason
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.evaluation_template = evaluation_template
-        self.evaluation_cost = 0 if self.using_gpt_model else float("nan")
+        self.evaluation_cost = 0 if self.using_native_model else float("nan")
         self.confusion_matrix: Optional[ClassifiedFacts] = None
 
     def measure(self, test_case: LLMTestCase) -> float:
@@ -106,7 +109,7 @@ class FactualCorrectnessMetric(BaseMetric):
         prompt = self.evaluation_template.classify_facts(
             answer=actual_output, ground_truth=expected_output
         )
-        if self.using_gpt_model:
+        if self.using_native_model:
             res, cost = await self.model.a_generate(
                 prompt, schema=FactClassificationResult
             )
@@ -134,7 +137,7 @@ class FactualCorrectnessMetric(BaseMetric):
         prompt = self.evaluation_template.classify_facts(
             answer=actual_output, ground_truth=expected_output
         )
-        if self.using_gpt_model:
+        if self.using_native_model:
             res, cost = self.model.generate(prompt, schema=FactClassificationResult)
             if isinstance(cost, (int, float)):
                 self.evaluation_cost = (self.evaluation_cost or 0.0) + float(cost)
