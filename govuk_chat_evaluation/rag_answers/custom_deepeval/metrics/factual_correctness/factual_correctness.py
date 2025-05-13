@@ -59,9 +59,6 @@ class FactualCorrectnessMetric(BaseMetric):
                     self.a_measure(test_case, _show_indicator=False)
                 )
             else:
-                logging.info(
-                    "Async mode is disabled. Running the synchronous function."
-                )
                 self.confusion_matrix = self._classify_statements(
                     test_case.actual_output, test_case.expected_output or ""
                 )
@@ -73,9 +70,6 @@ class FactualCorrectnessMetric(BaseMetric):
     ) -> float:
         """Asynchronously evaluate the factual correctness of a test case."""
         check_llm_test_case_params(test_case, self._required_params, self)
-        logging.info(
-            "Async mode is enabled. Using event loop to run the async function."
-        )
 
         with metric_progress_indicator(
             self, async_mode=True, _show_indicator=_show_indicator
