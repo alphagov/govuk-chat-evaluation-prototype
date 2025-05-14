@@ -2,7 +2,6 @@ from typing import Optional, List, Type
 
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 from deepeval.metrics import BaseMetric
-from deepeval.utils import get_or_create_event_loop
 
 from deepeval.metrics.utils import (
     check_llm_test_case_params,
@@ -32,7 +31,6 @@ class FactualCorrectnessMetric(BaseMetric):
         model: DeepEvalBaseLLM,
         threshold: float = 0.5,
         include_reason: bool = True,
-        async_mode: bool = True,
         strict_mode: bool = False,
         evaluation_template: Type[
             FactualCorrectnessTemplate
@@ -42,28 +40,17 @@ class FactualCorrectnessMetric(BaseMetric):
         self.threshold = 0 if strict_mode else threshold
         self.evaluation_model = self.model.get_model_name()
         self.include_reason = include_reason
-        self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.evaluation_template = evaluation_template
         self.evaluation_cost = 0 if self.using_native_model else None
         self.confusion_matrix: Optional[ClassifiedFacts] = None
+        self.async_mode = True
 
-    def measure(self, test_case: LLMTestCase) -> float:
+    def measure(self, test_case: LLMTestCase, *args, **kwargs) -> float:
         """Synchronously evaluate the factual correctness of a test case."""
-        check_llm_test_case_params(test_case, self._required_params, self)
-
-        with metric_progress_indicator(self):
-            if self.async_mode:
-                loop = get_or_create_event_loop()
-                return loop.run_until_complete(
-                    self.a_measure(test_case, _show_indicator=False)
-                )
-            else:
-                self.confusion_matrix = self._classify_statements(
-                    test_case.actual_output, test_case.expected_output or ""
-                )
-                logging.debug(f"Confusion matrix: {self.confusion_matrix}")
-                return self._finalise_evaluation()
+        raise NotImplementedError(
+            "Synchronous evaluation is not supported. Use async a_measure instead."
+        )
 
     async def a_measure(
         self, test_case: LLMTestCase, _show_indicator: bool = True
@@ -72,7 +59,7 @@ class FactualCorrectnessMetric(BaseMetric):
         check_llm_test_case_params(test_case, self._required_params, self)
 
         with metric_progress_indicator(
-            self, async_mode=True, _show_indicator=_show_indicator
+            self, async_mode=self.async_mode, _show_indicator=_show_indicator
         ):
             self.confusion_matrix = await self._a_classify_statements(
                 test_case.actual_output, test_case.expected_output or ""
@@ -118,30 +105,6 @@ class FactualCorrectnessMetric(BaseMetric):
                 return res.classified_facts  # type: ignore[arg-type]
             except TypeError:
                 res = await self.model.a_generate(prompt)
-                data = trimAndLoadJson(res, self)
-                data_model = FactClassificationResult(**data)
-                return data_model.classified_facts
-            except Exception as inner_e:
-                logging.error("Failed to parse fallback JSON.", exc_info=inner_e)
-                return ClassifiedFacts(TP=[], FP=[], FN=[])
-
-    def _classify_statements(
-        self, actual_output: str, expected_output: str
-    ) -> ClassifiedFacts:
-        prompt = self.evaluation_template.classify_facts(
-            answer=actual_output, ground_truth=expected_output
-        )
-        if self.using_native_model:
-            res, cost = self.model.generate(prompt, schema=FactClassificationResult)
-            if isinstance(cost, (int, float)):
-                self.evaluation_cost = (self.evaluation_cost or 0.0) + cost
-            return res.classified_facts  # type: ignore[arg-type]
-        else:
-            try:
-                res = self.model.generate(prompt, schema=FactClassificationResult)
-                return res.classified_facts  # type: ignore[arg-type]
-            except TypeError:
-                res = self.model.generate(prompt)
                 data = trimAndLoadJson(res, self)
                 data_model = FactClassificationResult(**data)
                 return data_model.classified_facts

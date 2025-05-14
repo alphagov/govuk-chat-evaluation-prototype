@@ -80,43 +80,35 @@ class TestFactualCorrectnessInitialization:
         assert metric.evaluation_cost is None
 
     @pytest.mark.parametrize(
-        "strict_mode, threshold, include_reason, async_mode, expected_threshold, expected_include_reason, expected_async_mode",
+        "strict_mode, threshold, include_reason, expected_threshold, expected_include_reason",
         [
             (
                 True,
                 0.7,
                 True,
-                False,
                 0,
                 True,
-                False,
             ),  # strict_mode=True should set threshold to 0
             (
                 False,
                 0.7,
                 True,
-                False,
                 0.7,
                 True,
-                False,
             ),  # strict_mode=False should keep threshold as 0.7
             (
                 True,
                 0.5,
                 False,
-                True,
                 0,
                 False,
-                True,
             ),  # strict_mode=True with different params
             (
                 False,
                 0.9,
                 False,
-                True,
                 0.9,
                 False,
-                True,
             ),  # strict_mode=False with different params
         ],
     )
@@ -126,31 +118,30 @@ class TestFactualCorrectnessInitialization:
         strict_mode,
         threshold,
         include_reason,
-        async_mode,
         expected_threshold,
         expected_include_reason,
-        expected_async_mode,
     ):
         metric = FactualCorrectnessMetric(
             model=mock_native_model,
             threshold=threshold,
             include_reason=include_reason,
-            async_mode=async_mode,
             strict_mode=strict_mode,
         )
 
         assert metric.threshold == expected_threshold
         assert metric.include_reason == expected_include_reason
-        assert metric.async_mode == expected_async_mode
+        assert metric.async_mode  # async_mode should be True by default
 
 
 class TestFactualCorrectnessClassification:
     """Tests for statement classification functionality"""
 
-    def test_custom_template_is_used(self, mock_native_model, mock_template):
-        mock_native_model.generate.return_value = (
-            Mock(classified_facts="mocked_facts"),
-            0.01,
+    @pytest.mark.asyncio
+    async def test_custom_template_is_used(
+        self, mock_native_model, mock_template, fact_classification_result
+    ):
+        mock_native_model.a_generate = AsyncMock(
+            return_value=(fact_classification_result, 0.01)
         )
 
         metric = FactualCorrectnessMetric(
@@ -158,89 +149,13 @@ class TestFactualCorrectnessClassification:
             evaluation_template=mock_template,  # type: ignore
         )
 
-        result = metric._classify_statements("actual", "expected")
+        result = await metric._a_classify_statements("actual", "expected")
 
         mock_template.classify_facts.assert_called_once_with(
             answer="actual", ground_truth="expected"
         )
 
-        assert result == "mocked_facts"
-
-    def test_classify_statements_using_native_model(
-        self, mock_native_model, fact_classification_result, mock_template
-    ):
-        mock_native_model.generate.return_value = (fact_classification_result, 0.5)
-
-        metric = FactualCorrectnessMetric(
-            model=mock_native_model, evaluation_template=mock_template, async_mode=False
-        )  # type: ignore
-        result = metric._classify_statements("actual", "expected")
-
-        assert isinstance(result, ClassifiedFacts)
-        assert result.TP == ["fact1"]
-        assert result.FP == ["fact2"]
-        assert metric.evaluation_cost == 0.5
-        mock_native_model.generate.assert_called_once_with(
-            "mocked_prompt", schema=FactClassificationResult
-        )
-        mock_template.classify_facts.assert_called_once_with(
-            answer="actual", ground_truth="expected"
-        )
-
-    def test_classify_statements_non_native_success(
-        self, mock_non_native_model, fact_classification_result, mock_template
-    ):
-        mock_non_native_model.generate.return_value = fact_classification_result
-
-        metric = FactualCorrectnessMetric(
-            model=mock_non_native_model,
-            evaluation_template=mock_template,
-            async_mode=False,
-        )  # type: ignore
-        result = metric._classify_statements("actual", "expected")
-
-        assert result.TP == ["fact1"]
-        assert result.FP == ["fact2"]
-        assert metric.evaluation_cost is None  # should remain None
-        mock_non_native_model.generate.assert_called_once_with(
-            "mocked_prompt", schema=FactClassificationResult
-        )
-
-    @patch(
-        "govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness.trimAndLoadJson"
-    )
-    def test_classify_statements_non_native_typeerror(
-        self, mock_trim, mock_non_native_model, mock_template
-    ):
-        mock_trim.return_value = {"classified_facts": {"TP": [], "FP": [], "FN": []}}
-
-        mock_non_native_model.generate.side_effect = [
-            TypeError("wrong formatted json"),
-            '{"classified_facts": {"TP": [], "FP": [], "FN": []}}',
-        ]
-
-        metric = FactualCorrectnessMetric(
-            model=mock_non_native_model, evaluation_template=mock_template
-        )  # type: ignore
-        result = metric._classify_statements("actual", "expected")
-
-        assert isinstance(result, ClassifiedFacts)
-        assert result.TP == []
-        mock_trim.assert_called_once()
-
-    def test_classify_statements_non_native_general_exception(
-        self, mock_non_native_model, mock_template
-    ):
-        mock_non_native_model.generate.side_effect = Exception("unexpected")
-
-        metric = FactualCorrectnessMetric(
-            model=mock_non_native_model, evaluation_template=mock_template
-        )  # type: ignore
-        result = metric._classify_statements("actual", "expected")
-
-        assert isinstance(result, ClassifiedFacts)
-        assert result.TP == []
-        assert result.FP == []
+        assert result == fact_classification_result.classified_facts
 
     @pytest.mark.asyncio
     async def test_a_classify_statements_using_native_model(
@@ -251,7 +166,7 @@ class TestFactualCorrectnessClassification:
         )
 
         metric = FactualCorrectnessMetric(
-            model=mock_native_model, evaluation_template=mock_template, async_mode=True
+            model=mock_native_model, evaluation_template=mock_template
         )  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
@@ -277,7 +192,6 @@ class TestFactualCorrectnessClassification:
         metric = FactualCorrectnessMetric(
             model=mock_non_native_model,
             evaluation_template=mock_template,
-            async_mode=True,
         )  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
@@ -306,9 +220,7 @@ class TestFactualCorrectnessClassification:
         ]
 
         metric = FactualCorrectnessMetric(
-            model=mock_non_native_model,
-            evaluation_template=mock_template,
-            async_mode=True,
+            model=mock_non_native_model, evaluation_template=mock_template
         )  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
@@ -326,9 +238,7 @@ class TestFactualCorrectnessClassification:
         )
 
         metric = FactualCorrectnessMetric(
-            model=mock_non_native_model,
-            evaluation_template=mock_template,
-            async_mode=True,
+            model=mock_non_native_model, evaluation_template=mock_template
         )  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
@@ -340,42 +250,19 @@ class TestFactualCorrectnessClassification:
 class TestFactualCorrectnessMeasureMethods:
     """Tests for the measure/a_measure functionality"""
 
-    def test_measure_sync_valid_confusion_matrix(
+    def test_measure_sync_non_implementation_error(
         self, mock_native_model, test_case, sample_classified_facts
     ):
         metric = FactualCorrectnessMetric(
             model=mock_native_model,
             threshold=0.7,
             include_reason=True,
-            async_mode=False,
         )
 
-        metric._classify_statements = Mock(return_value=sample_classified_facts)
-        metric._calculate_score = Mock(return_value=0.8)
-
-        result = metric.measure(test_case)
-
-        assert result == 0.8
-        assert metric.confusion_matrix is not None
-        metric._classify_statements.assert_called_once_with("Actual", "Expected")
-        assert metric.reason is not None
-
-    def test_measure_sync_none_confusion_matrix(self, mock_native_model, test_case):
-        metric = FactualCorrectnessMetric(
-            model=mock_native_model,
-            threshold=0.7,
-            include_reason=True,
-            async_mode=False,
-        )
-
-        metric._classify_statements = Mock(return_value=None)
-        metric._calculate_score = Mock(return_value=float("nan"))
-
-        result = metric.measure(test_case)
-        assert result != result  # NaN is not equal to itself
-
-        assert metric.confusion_matrix is None
-        assert metric.error == "Error: confusion_matrix was None"
+        with pytest.raises(
+            NotImplementedError, match="Synchronous evaluation is not supported"
+        ):
+            metric.measure(test_case)
 
     @pytest.mark.asyncio
     async def test_a_measure_async(
@@ -386,7 +273,7 @@ class TestFactualCorrectnessMeasureMethods:
         )
 
         metric = FactualCorrectnessMetric(
-            model=mock_native_model, threshold=0.7, include_reason=True, async_mode=True
+            model=mock_native_model, threshold=0.7, include_reason=True
         )
 
         metric._a_classify_statements = AsyncMock(return_value=sample_classified_facts)
@@ -395,18 +282,6 @@ class TestFactualCorrectnessMeasureMethods:
         result = await metric.a_measure(test_case)
         assert result == 0.8
         metric._a_classify_statements.assert_awaited_once_with("Actual", "Expected")
-
-    def test_measure_routes_to_async(self, mock_native_model, test_case):
-        metric = FactualCorrectnessMetric(model=mock_native_model, async_mode=True)
-
-        metric.a_measure = AsyncMock(return_value=0.9)
-
-        # call the synchronous measure method — it should run the async path internally
-        result = metric.measure(test_case)
-
-        # Check a_measure was awaited once
-        metric.a_measure.assert_awaited_once_with(test_case, _show_indicator=False)
-        assert result == 0.9
 
 
 class TestFactualCorrectnessHelperMethods:
@@ -583,13 +458,13 @@ test_7 = (
     "llm_test_case, expected_score",
     [test_1, test_2, test_3, test_4, test_5, test_6, test_7],
 )
-def test_factual_correctness_score(llm_test_case, expected_score):
+@pytest.mark.asyncio
+async def test_factual_correctness_score(llm_test_case, expected_score):
     correctness_metric = FactualCorrectnessMetric(
         model=GPTModel(model="gpt-4o", temperature=0),
         include_reason=False,
-        async_mode=False,
     )
-    computed_score = correctness_metric.measure(llm_test_case)
+    computed_score = await correctness_metric.a_measure(llm_test_case)
     assert computed_score == expected_score
 
 
@@ -603,6 +478,5 @@ def test_factual_correctness_deepeval():
     metric = FactualCorrectnessMetric(
         model=GPTModel(model="gpt-4o", temperature=0),
         include_reason=False,
-        async_mode=False,
     )
     assert_test(test_case, [metric])
