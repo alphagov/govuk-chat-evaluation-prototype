@@ -3,19 +3,20 @@ import math
 import json
 import os
 
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
+from unittest.mock import Mock, AsyncMock, patch
 from deepeval import assert_test
 from deepeval.test_case import LLMTestCase
 from deepeval.models import GPTModel, DeepEvalBaseLLM
 from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness import (
     FactualCorrectnessMetric,
 )
-from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.template import (
-    FactualCorrectnessTemplate,
-)
+
 from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.schema import (
     ClassifiedFacts,
     FactClassificationResult,
+)
+from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.template import (
+    FactualCorrectnessTemplate,
 )
 
 
@@ -32,14 +33,6 @@ def mock_non_native_model():
     """Fixture for a mock non-native model"""
     mock = Mock(spec=DeepEvalBaseLLM)
     mock.get_model_name.return_value = "a-non-native-model"
-    return mock
-
-
-@pytest.fixture
-def mock_template():
-    """Fixture for a mock template"""
-    mock = MagicMock(spec=FactualCorrectnessTemplate)
-    mock.classify_facts.return_value = "mocked_prompt"
     return mock
 
 
@@ -141,62 +134,48 @@ class TestFactualCorrectnessClassification:
     """Tests for statement classification functionality"""
 
     @pytest.mark.asyncio
-    async def test_custom_template_is_used(
-        self, mock_native_model, mock_template, fact_classification_result
-    ):
-        mock_native_model.a_generate = AsyncMock(
-            return_value=(fact_classification_result, 0.01)
-        )
-
-        metric = FactualCorrectnessMetric(
-            model=mock_native_model,
-            evaluation_template=mock_template,  # type: ignore
-        )
-
-        result = await metric._a_classify_statements("actual", "expected")
-
-        mock_template.classify_facts.assert_called_once_with(
-            answer="actual", ground_truth="expected"
-        )
-
-        assert result == fact_classification_result.classified_facts
-
-    @pytest.mark.asyncio
+    @patch.object(
+        FactualCorrectnessTemplate, "classify_facts", return_value="mocked_prompt"
+    )
     async def test_a_classify_statements_using_native_model(
-        self, mock_native_model, fact_classification_result, mock_template
+        self, mock_classify_facts, mock_native_model, fact_classification_result
     ):
+        # mock a_generate to return a known result and cost
         mock_native_model.a_generate = AsyncMock(
             return_value=(fact_classification_result, 0.5)
         )
 
-        metric = FactualCorrectnessMetric(
-            model=mock_native_model, evaluation_template=mock_template
-        )  # type: ignore
+        metric = FactualCorrectnessMetric(model=mock_native_model)  # type: ignore
+
         result = await metric._a_classify_statements("actual", "expected")
 
         assert isinstance(result, ClassifiedFacts)
         assert result.TP == ["fact1"]
         assert result.FP == ["fact2"]
         assert metric.evaluation_cost == 0.5
+
+        # Ensure model was called with the mocked prompt and schema
         mock_native_model.a_generate.assert_awaited_once_with(
             "mocked_prompt", schema=FactClassificationResult
         )
-        mock_template.classify_facts.assert_called_once_with(
+
+        # confirm the classify_facts method was called correctly
+        mock_classify_facts.assert_called_once_with(
             answer="actual", ground_truth="expected"
         )
 
     @pytest.mark.asyncio
+    @patch.object(
+        FactualCorrectnessTemplate, "classify_facts", return_value="mocked_prompt"
+    )
     async def test_a_classify_statements_non_native_success(
-        self, mock_non_native_model, fact_classification_result, mock_template
+        self, mock_classify_facts, mock_non_native_model, fact_classification_result
     ):
         mock_non_native_model.a_generate = AsyncMock(
             return_value=fact_classification_result
         )
 
-        metric = FactualCorrectnessMetric(
-            model=mock_non_native_model,
-            evaluation_template=mock_template,
-        )  # type: ignore
+        metric = FactualCorrectnessMetric(model=mock_non_native_model)  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
         assert result.TP == ["fact1"]
@@ -212,7 +191,7 @@ class TestFactualCorrectnessClassification:
         "govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness.trimAndLoadJson"
     )
     async def test_a_classify_statements_non_native_typeerror(
-        self, mock_trim, mock_non_native_model, mock_template
+        self, mock_trim, mock_non_native_model
     ):
         mock_trim.return_value = {"classified_facts": {"TP": [], "FP": [], "FN": []}}
 
@@ -223,9 +202,7 @@ class TestFactualCorrectnessClassification:
             '{"classified_facts": {"TP": [], "FP": [], "FN": []}}',
         ]
 
-        metric = FactualCorrectnessMetric(
-            model=mock_non_native_model, evaluation_template=mock_template
-        )  # type: ignore
+        metric = FactualCorrectnessMetric(model=mock_non_native_model)  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
         assert isinstance(result, ClassifiedFacts)
@@ -234,16 +211,14 @@ class TestFactualCorrectnessClassification:
 
     @pytest.mark.asyncio
     async def test_a_classify_statements_non_native_general_exception(
-        self, mock_non_native_model, mock_template
+        self, mock_non_native_model
     ):
         # set up the mock to raise an exception
         mock_non_native_model.a_generate = AsyncMock(
             side_effect=Exception("unexpected")
         )
 
-        metric = FactualCorrectnessMetric(
-            model=mock_non_native_model, evaluation_template=mock_template
-        )  # type: ignore
+        metric = FactualCorrectnessMetric(model=mock_non_native_model)  # type: ignore
         result = await metric._a_classify_statements("actual", "expected")
 
         assert isinstance(result, ClassifiedFacts)

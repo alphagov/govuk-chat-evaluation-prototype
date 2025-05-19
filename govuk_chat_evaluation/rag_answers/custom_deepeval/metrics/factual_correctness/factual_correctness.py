@@ -26,6 +26,7 @@ class FactualCorrectnessMetric(BaseMetric):
         LLMTestCaseParams.EXPECTED_OUTPUT,
     ]
 
+    evaluation_template: Type[FactualCorrectnessTemplate] = FactualCorrectnessTemplate
     async_mode: bool = True
 
     def __init__(
@@ -34,16 +35,12 @@ class FactualCorrectnessMetric(BaseMetric):
         threshold: float = 0.5,
         include_reason: bool = True,
         strict_mode: bool = False,
-        evaluation_template: Type[
-            FactualCorrectnessTemplate
-        ] = FactualCorrectnessTemplate,
     ):
         self.model, self.using_native_model = initialize_model(model)
         self.threshold = 0 if strict_mode else threshold
         self.evaluation_model = self.model.get_model_name()
         self.include_reason = include_reason
         self.strict_mode = strict_mode
-        self.evaluation_template = evaluation_template
         self.evaluation_cost = 0 if self.using_native_model else None
         self.confusion_matrix: Optional[ClassifiedFacts] = None
 
