@@ -64,7 +64,9 @@ class FactualCorrectnessMetric(BaseMetric):
             self.confusion_matrix = await self._a_classify_statements(
                 test_case.actual_output, test_case.expected_output or ""
             )
-            logging.debug(f"Confusion matrix: {self.confusion_matrix}")
+            logging.debug(
+                f"Confusion matrix for test input: '{test_case.input}': \n{self.confusion_matrix}"
+            )
             return self._finalise_evaluation()
 
     def _finalise_evaluation(self) -> float:
