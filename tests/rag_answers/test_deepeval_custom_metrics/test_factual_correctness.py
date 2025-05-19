@@ -7,9 +7,13 @@ from unittest.mock import Mock, AsyncMock, MagicMock, patch
 from deepeval import assert_test
 from deepeval.test_case import LLMTestCase
 from deepeval.models import GPTModel, DeepEvalBaseLLM
-from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness import (
+from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness import (
     FactualCorrectnessMetric,
+)
+from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.template import (
     FactualCorrectnessTemplate,
+)
+from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.schema import (
     ClassifiedFacts,
     FactClassificationResult,
 )

@@ -12,7 +12,7 @@ from deepeval.metrics import (
 )
 from deepeval.models.llms.openai_model import GPTModel
 
-from .custom_deepeval.metrics.factual_correctness.factual_correctness import (
+from .custom_deepeval.metrics.factual_correctness import (
     FactualCorrectnessMetric,
 )
 from ..config import BaseConfig
