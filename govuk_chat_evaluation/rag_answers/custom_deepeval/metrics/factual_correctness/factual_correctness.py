@@ -26,6 +26,8 @@ class FactualCorrectnessMetric(BaseMetric):
         LLMTestCaseParams.EXPECTED_OUTPUT,
     ]
 
+    async_mode: bool = True
+
     def __init__(
         self,
         model: DeepEvalBaseLLM,
@@ -44,7 +46,6 @@ class FactualCorrectnessMetric(BaseMetric):
         self.evaluation_template = evaluation_template
         self.evaluation_cost = 0 if self.using_native_model else None
         self.confusion_matrix: Optional[ClassifiedFacts] = None
-        self.async_mode = True
 
     def measure(self, test_case: LLMTestCase, *args, **kwargs) -> float:
         """Synchronously evaluate the factual correctness of a test case."""
