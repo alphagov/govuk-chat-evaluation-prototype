@@ -37,7 +37,7 @@ class FactualCorrectnessMetric(BaseMetric):
         strict_mode: bool = False,
     ):
         self.model, self.using_native_model = initialize_model(model)
-        self.threshold = 0 if strict_mode else threshold
+        self.threshold = 1 if strict_mode else threshold
         self.evaluation_model = self.model.get_model_name()
         self.include_reason = include_reason
         self.strict_mode = strict_mode
@@ -129,7 +129,7 @@ class FactualCorrectnessMetric(BaseMetric):
         fp = len(self.confusion_matrix.FP)
         score = tp / (tp + fp) if (tp + fp) > 0 else 0.0
 
-        return 1.0 if self.strict_mode and score > self.threshold else score
+        return 0.0 if self.strict_mode and score < self.threshold else score
 
     def is_successful(self) -> bool:
         if self.error is not None:
