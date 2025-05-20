@@ -60,7 +60,9 @@ class FactualCorrectnessMetric(BaseMetric):
             self, async_mode=self.async_mode, _show_indicator=_show_indicator
         ):
             self.confusion_matrix = await self._a_classify_statements(
-                test_case.actual_output, test_case.expected_output or ""
+                test_case.input,
+                test_case.actual_output,
+                test_case.expected_output or "",
             )
             logging.debug(
                 f"Confusion matrix for test input: '{test_case.input}': \n{self.confusion_matrix}"
@@ -85,7 +87,7 @@ class FactualCorrectnessMetric(BaseMetric):
         return f'{{"true_positive_statements": {self.confusion_matrix.TP}, "false_positive_statements": {self.confusion_matrix.FP}}}'
 
     async def _a_classify_statements(
-        self, actual_output: str, expected_output: str
+        self, input: str, actual_output: str, expected_output: str
     ) -> ClassifiedFacts:
         prompt = self.evaluation_template.classify_facts(
             answer=actual_output, ground_truth=expected_output
@@ -109,7 +111,10 @@ class FactualCorrectnessMetric(BaseMetric):
                 data_model = FactClassificationResult(**data)
                 return data_model.classified_facts
             except Exception as inner_e:
-                logging.error("Failed to parse fallback JSON.", exc_info=inner_e)
+                logging.error(
+                    f"Failed to parse fallback JSON for test input: {input}",
+                    exc_info=inner_e,
+                )
                 return ClassifiedFacts(TP=[], FP=[], FN=[])
 
     def _calculate_score(self) -> float:

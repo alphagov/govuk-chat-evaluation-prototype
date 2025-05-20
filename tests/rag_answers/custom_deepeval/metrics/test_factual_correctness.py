@@ -151,7 +151,9 @@ class TestFactualCorrectness:
             expected_score = metric._calculate_score()
             assert result == expected_score
 
-            metric._a_classify_statements.assert_awaited_once_with("Actual", "Expected")
+            metric._a_classify_statements.assert_awaited_once_with(
+                "Input", "Actual", "Expected"
+            )
 
         sample_facts = ClassifiedFacts(TP=["fact1", "fact2"], FP=["wrong1"], FN=[])
 
