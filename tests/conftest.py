@@ -3,10 +3,14 @@ import os
 from pathlib import Path
 from inspect import signature
 from typing import Callable
+from dotenv import load_dotenv
 from unittest.mock import MagicMock
 
 import pytest
 from typeguard import check_type, TypeCheckError
+
+
+load_dotenv()
 
 
 @pytest.fixture
