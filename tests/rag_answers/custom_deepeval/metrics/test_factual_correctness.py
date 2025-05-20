@@ -116,17 +116,18 @@ class TestFactualCorrectness:
         async def test_logs_confusion_matrix(
             self, mock_logging_debug: MagicMock, mock_native_model: Mock, test_case
         ):
-            # confusion matrix for logging
-            sample_confusion_matrix = ClassifiedFacts(
-                TP=["fact1"], FP=["fact2"], FN=["fact3"]
+            mock_native_model.a_generate = AsyncMock(
+                return_value=(
+                    FactClassificationResult(
+                        classified_facts=ClassifiedFacts(
+                            TP=["fact1"], FP=["fact2"], FN=["fact3"]
+                        )
+                    ),
+                    0.1,
+                )
             )
 
             metric = FactualCorrectnessMetric(model=mock_native_model)
-
-            # mock _a_classify_statements to return the sample confusion matrix
-            metric._a_classify_statements = AsyncMock(
-                return_value=sample_confusion_matrix
-            )
 
             await metric.a_measure(test_case)
 
@@ -144,30 +145,49 @@ class TestFactualCorrectness:
             assert str(test_case.input) in logged_message
 
         @pytest.mark.asyncio
+        @pytest.mark.parametrize(
+            "input_TP,input_FP,expected_score",
+            [
+                (
+                    ["fact1", "fact2"],
+                    ["fact3"],
+                    2 / 3,
+                ),
+                ([], [], 0.0),
+            ],
+        )
         async def test_returns_score(
             self,
             mock_native_model: Mock,
             test_case: LLMTestCase,
-            sample_classified_facts: ClassifiedFacts,
+            input_TP: list,
+            input_FP: list,
+            expected_score: float,
         ):
+            mock_native_model.a_generate = AsyncMock(
+                return_value=(
+                    FactClassificationResult(
+                        classified_facts=ClassifiedFacts(
+                            TP=input_TP, FP=input_FP, FN=["fact3"]
+                        )
+                    ),
+                    expected_score,
+                )
+            )
+
             metric = FactualCorrectnessMetric(
                 model=mock_native_model, threshold=0.7, include_reason=True
             )
 
-            metric._a_classify_statements = AsyncMock(
-                return_value=sample_classified_facts
-            )
-
-            # let _calculate_score run naturally; it uses mocked _classify_statements
+            # let _calculate_score run naturally; it uses mocked a_generate
             result = await metric.a_measure(test_case)
 
-            # expected score based on real implementation
-            expected_score = metric._calculate_score()
-            assert result == expected_score
+            assert round(result, 3) == round(expected_score, 3)
 
-            metric._a_classify_statements.assert_awaited_once_with(
-                "Input", "Actual", "Expected"
-            )
+            # assert dependency boundary was called once as expected (with schema)
+            mock_native_model.a_generate.assert_awaited_once()
+            _, kwargs = mock_native_model.a_generate.call_args
+            assert kwargs.get("schema") == FactClassificationResult
 
         sample_facts = ClassifiedFacts(TP=["fact1", "fact2"], FP=["wrong1"], FN=[])
 
@@ -189,10 +209,12 @@ class TestFactualCorrectness:
             mock_native_model: Mock,
             test_case: LLMTestCase,
         ):
+            mock_native_model.a_generate = AsyncMock(
+                return_value=(FactClassificationResult(classified_facts=facts), 0.1)
+            )
             metric = FactualCorrectnessMetric(
                 model=mock_native_model, threshold=threshold
             )
-            metric._a_classify_statements = AsyncMock(return_value=facts)
 
             _ = await metric.a_measure(test_case)
 
@@ -214,17 +236,17 @@ class TestFactualCorrectness:
         )
         async def test_include_reason_can_be_configured(
             self,
-            sample_classified_facts: ClassifiedFacts,
+            fact_classification_result: FactClassificationResult,
             include_reason: bool,
             expected_reason: dict | None,
             mock_native_model: Mock,
             test_case: LLMTestCase,
         ):
+            mock_native_model.a_generate = AsyncMock(
+                return_value=(fact_classification_result, 0.1)
+            )
             metric = FactualCorrectnessMetric(
                 model=mock_native_model, include_reason=include_reason
-            )
-            metric._a_classify_statements = AsyncMock(
-                return_value=sample_classified_facts
             )
 
             _ = await metric.a_measure(test_case)
@@ -286,19 +308,24 @@ class TestFactualCorrectness:
         ):
             classified_facts = ClassifiedFacts(TP=TP, FP=FP, FN=[])
 
+            mock_native_model.a_generate = AsyncMock(
+                return_value=(
+                    FactClassificationResult(classified_facts=classified_facts),
+                    0.1,
+                )
+            )
+
             metric = FactualCorrectnessMetric(
                 model=mock_native_model,
                 threshold=threshold,
                 strict_mode=strict_mode,
             )
 
-            metric._a_classify_statements = AsyncMock(return_value=classified_facts)
-
             # let _calculate_score and _finalise_evaluation run naturally
             result = await metric.a_measure(test_case)
 
             assert round(result, 4) == round(expected_score, 4)
-            assert metric.success == (expected_success)
+            assert metric.success == expected_success
 
         @pytest.mark.asyncio
         async def test_native_model_sets_evaluation_costs(
