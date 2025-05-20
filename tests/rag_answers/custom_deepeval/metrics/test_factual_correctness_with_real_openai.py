@@ -1,4 +1,3 @@
-import os
 import pytest
 from deepeval.test_case import LLMTestCase
 from deepeval.models import GPTModel
@@ -7,24 +6,15 @@ from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctne
     FactualCorrectnessMetric,
 )
 
-run_openai_tests = os.getenv("RUN_OPENAI_TESTS") == "1"
-# to run the tests, set the environment variable RUN_OPENAI_TESTS=1
-# to run these tests:
-# RUN_OPENAI_TESTS=1 uv run pytest
 
-if run_openai_tests:
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError(
-            "RUN_OPENAI_TESTS is set, but OPENAI_API_KEY is not defined."
-        )
-
-
-@pytest.mark.skipif("not run_openai_tests", reason="openai is expensive")
+@pytest.mark.real_openai
 class TestFactualCorrectnessRealOpenAI:
     """
     Test the FactualCorrectnessMetric with real OpenAI API calls.
     This test requires the OPENAI_API_KEY environment variable to be set.
+
+    It can be run with the command:
+    uv run pytest -m 'real_openai'
     """
 
     @pytest.mark.parametrize(
