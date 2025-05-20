@@ -341,7 +341,6 @@ class TestFactualCorrectness:
             )
 
             metric = FactualCorrectnessMetric(model=mock_native_model)
-            metric.using_native_model = True  # ensure we hit native logic
 
             _ = await metric.a_measure(test_case)
 
