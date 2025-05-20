@@ -74,12 +74,24 @@ class TestFactualCorrectness:
         @patch(
             "govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness.metric_progress_indicator"
         )
+        @pytest.mark.parametrize(
+            "set_show_progress, expected_show_progress",
+            [
+                (
+                    True,
+                    True,
+                ),
+                (False, False),
+            ],
+        )
         async def test_show_progress(
             self,
             mock_progress_indicator,
             mock_native_model: Mock,
             test_case: LLMTestCase,
             fact_classification_result: FactClassificationResult,
+            set_show_progress: bool,
+            expected_show_progress: bool,
         ):
             mock_native_model.a_generate = AsyncMock(
                 return_value=(fact_classification_result, 0.5)
@@ -88,11 +100,13 @@ class TestFactualCorrectness:
             metric = FactualCorrectnessMetric(model=mock_native_model)
 
             # since we patched metric_progress_indicator, it shuold call the mocked context manager mock_progress_indicator
-            await metric.a_measure(test_case, _show_indicator=True)
+            await metric.a_measure(test_case, _show_indicator=set_show_progress)
 
             # test it actually called the mock
             mock_progress_indicator.assert_called_once_with(
-                metric, async_mode=metric.async_mode, _show_indicator=True
+                metric,
+                async_mode=metric.async_mode,
+                _show_indicator=expected_show_progress,
             )
 
         @pytest.mark.asyncio
