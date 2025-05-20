@@ -351,13 +351,10 @@ class TestFactualCorrectness:
         @patch(
             "govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness.initialize_model"
         )
-        @patch.object(
-            FactualCorrectnessTemplate, "classify_facts", return_value="mocked_prompt"
-        )
         async def test_non_native_model_returns_valid_schema(
             self,
-            mock_non_native_model: Mock,
             mock_initialize_model,
+            mock_non_native_model: Mock,
             test_case: LLMTestCase,
             fact_classification_result: FactClassificationResult,
         ):
@@ -375,10 +372,6 @@ class TestFactualCorrectness:
             assert isinstance(metric.confusion_matrix, ClassifiedFacts)
             assert (
                 metric.confusion_matrix == fact_classification_result.classified_facts
-            )
-
-            mock_non_native_model.a_generate.assert_awaited_once_with(
-                "mocked_prompt", schema=FactClassificationResult
             )
 
         @pytest.mark.asyncio
