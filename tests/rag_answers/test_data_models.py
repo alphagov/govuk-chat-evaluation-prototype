@@ -1,10 +1,9 @@
 import pytest
+
 from pydantic import ValidationError
-from deepeval.test_case import LLMTestCase
-from deepeval.metrics import (
-    FaithfulnessMetric,
-    BiasMetric,
-)
+from deepeval.test_case.llm_test_case import LLMTestCase
+from deepeval.metrics.faithfulness.faithfulness import FaithfulnessMetric
+from deepeval.metrics.bias.bias import BiasMetric
 
 from govuk_chat_evaluation.rag_answers.data_models import (
     EvaluationTestCase,

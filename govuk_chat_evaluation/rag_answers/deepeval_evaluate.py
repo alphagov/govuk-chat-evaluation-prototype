@@ -2,8 +2,8 @@ from collections import defaultdict
 
 from deepeval import evaluate as deepeval_evaluate
 from deepeval.evaluate.types import TestResult
-from deepeval.metrics import BaseMetric
-from deepeval.test_case import LLMTestCase
+from deepeval.metrics.base_metric import BaseMetric
+from deepeval.test_case.llm_test_case import LLMTestCase
 
 from .data_models import EvaluationResult, RunMetricOutput
 from ..timing import log_task_duration

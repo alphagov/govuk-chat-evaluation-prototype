@@ -1,15 +1,13 @@
-from deepeval.test_case import LLMTestCase
+from deepeval.test_case.llm_test_case import LLMTestCase
 from pydantic import BaseModel, model_validator
 from pydantic.dataclasses import dataclass
 from enum import Enum
 from typing import Any
 import uuid
 
-from deepeval.metrics import (
-    FaithfulnessMetric,
-    AnswerRelevancyMetric,
-    BiasMetric,
-)
+from deepeval.metrics.faithfulness.faithfulness import FaithfulnessMetric
+from deepeval.metrics.answer_relevancy.answer_relevancy import AnswerRelevancyMetric
+from deepeval.metrics.bias.bias import BiasMetric
 from deepeval.models.llms.openai_model import GPTModel
 
 from ..config import BaseConfig
