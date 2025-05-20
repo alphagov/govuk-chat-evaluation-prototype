@@ -4,7 +4,7 @@ from typing import cast
 from functools import cached_property
 import pandas as pd
 
-from deepeval.metrics import BaseMetric
+from deepeval.metrics.base_metric import BaseMetric
 from deepeval.evaluate.configs import (
     AsyncConfig,
     DisplayConfig,

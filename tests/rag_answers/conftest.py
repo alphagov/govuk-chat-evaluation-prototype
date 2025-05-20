@@ -6,7 +6,7 @@ from deepeval.evaluate.types import (
     TestResult as DeepevalTestResult,
     EvaluationResult as DeepevalEvaluationResult,
 )
-from deepeval.test_run import MetricData
+from deepeval.tracing.api import MetricData
 
 
 @pytest.fixture
