@@ -106,16 +106,17 @@ class FactualCorrectnessMetric(BaseMetric):
                 )
                 return res.classified_facts  # type: ignore[arg-type]
             except TypeError:
-                res = await self.model.a_generate(prompt)
-                data = trimAndLoadJson(res, self)
-                data_model = FactClassificationResult(**data)
-                return data_model.classified_facts
-            except Exception as inner_e:
-                logging.error(
-                    f"Failed to parse fallback JSON for test input: {input}",
-                    exc_info=inner_e,
-                )
-                return ClassifiedFacts(TP=[], FP=[], FN=[])
+                try:
+                    res = await self.model.a_generate(prompt)
+                    data = trimAndLoadJson(res, self)
+                    data_model = FactClassificationResult(**data)
+                    return data_model.classified_facts
+                except Exception as inner_e:
+                    logging.error(
+                        f"Failed to parse fallback JSON for test input: {input}",
+                        exc_info=inner_e,
+                    )
+                    return ClassifiedFacts(TP=[], FP=[], FN=[])
 
     def _calculate_score(self) -> float:
         """
