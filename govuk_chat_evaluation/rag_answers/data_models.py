@@ -12,6 +12,9 @@ from deepeval.metrics import (
 )
 from deepeval.models.llms.openai_model import GPTModel
 
+from .custom_deepeval.metrics.factual_correctness import (
+    FactualCorrectnessMetric,
+)
 from ..config import BaseConfig
 
 
@@ -62,6 +65,7 @@ class MetricName(str, Enum):
     FAITHFULNESS = "faithfulness"
     RELEVANCE = "relevance"
     BIAS = "bias"
+    FACTUAL_CORRECTNESS = "factual_correctness"
     # others to add
 
 
@@ -127,6 +131,8 @@ class MetricConfig(BaseModel):
                 return AnswerRelevancyMetric(threshold=self.threshold, model=model)
             case MetricName.BIAS:
                 return BiasMetric(threshold=self.threshold, model=model)
+            case MetricName.FACTUAL_CORRECTNESS:
+                return FactualCorrectnessMetric(threshold=self.threshold, model=model)
 
 
 # ----- Configuration models -----
