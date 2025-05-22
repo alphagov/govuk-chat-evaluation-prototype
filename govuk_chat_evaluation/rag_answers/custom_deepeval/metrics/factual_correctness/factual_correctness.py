@@ -42,7 +42,7 @@ class FactualCorrectnessMetric(BaseMetric):
         self.include_reason = include_reason
         self.strict_mode = strict_mode
         self.evaluation_cost = 0 if self.using_native_model else None
-        self.confusion_matrix: Optional[ClassifiedFacts] = None
+        self.confusion_matrix: ClassifiedFacts = ClassifiedFacts()
 
     def measure(self, test_case: LLMTestCase, *args, **kwargs) -> float:
         """Synchronously evaluate the factual correctness of a test case."""
@@ -67,22 +67,23 @@ class FactualCorrectnessMetric(BaseMetric):
             logging.debug(
                 f"Confusion matrix for test input: '{test_case.input}': \n{self.confusion_matrix}"
             )
-            return self._finalise_evaluation()
+            return self._finalise_evaluation(test_case.input)
 
-    def _finalise_evaluation(self) -> float:
+    def _finalise_evaluation(self, input: str) -> float:
         """Finalise the evaluation by computing score, reason, and success status."""
-        if self.confusion_matrix is not None:
+        if self.confusion_matrix.has_facts():
             self.score = self._calculate_score()
             self.reason = self._generate_reason()
             self.success = self.score >= self.threshold
             capture_metric_type(self.__name__, async_mode=self.async_mode)
             return self.score
         else:
-            self.error = "Error: confusion_matrix was None"
+            self.error = f"Error: no facts were classified. confusion_matrix is empty for input: {input}."
+            logging.error(self.error)
             return float("nan")
 
     def _generate_reason(self) -> Optional[str]:
-        if not self.include_reason or self.confusion_matrix is None:
+        if not self.include_reason or not self.confusion_matrix.has_facts():
             return None
         return f'{{"true_positive_statements": {self.confusion_matrix.TP}, "false_positive_statements": {self.confusion_matrix.FP}}}'
 
@@ -116,7 +117,7 @@ class FactualCorrectnessMetric(BaseMetric):
                         f"Failed to parse fallback JSON for test input: {input}",
                         exc_info=inner_e,
                     )
-                    return ClassifiedFacts(TP=[], FP=[], FN=[])
+                    return ClassifiedFacts()
 
     def _calculate_score(self) -> float:
         """

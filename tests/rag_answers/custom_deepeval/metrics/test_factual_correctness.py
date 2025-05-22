@@ -1,8 +1,9 @@
 import pytest
 import json
+import math
 import logging
 
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
+from unittest.mock import Mock, AsyncMock, patch
 from deepeval.test_case import LLMTestCase
 from deepeval.models import GPTModel, DeepEvalBaseLLM
 from deepeval.errors import MissingTestCaseParamsError
@@ -108,11 +109,8 @@ class TestFactualCorrectness:
             )
 
         @pytest.mark.asyncio
-        @patch(
-            "govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness.logging.debug"
-        )
         async def test_logs_confusion_matrix(
-            self, mock_logging_debug: MagicMock, mock_native_model: Mock, test_case
+            self, mock_native_model: Mock, test_case, caplog: pytest.LogCaptureFixture
         ):
             mock_native_model.a_generate = AsyncMock(
                 return_value=(
@@ -125,15 +123,12 @@ class TestFactualCorrectness:
                 )
             )
 
+            caplog.set_level(logging.DEBUG)
             metric = FactualCorrectnessMetric(model=mock_native_model)
 
             await metric.a_measure(test_case)
 
-            # verify logging.debug was called once
-            mock_logging_debug.assert_called_once()
-
-            # verify ligged message contains the expected objects
-            logged_message = mock_logging_debug.call_args[0][0]
+            logged_message = caplog.text
 
             assert "Confusion matrix for test input:" in logged_message
             assert "fact1" in logged_message
@@ -372,6 +367,34 @@ class TestFactualCorrectness:
             )
             assert isinstance(result, float)
             assert result == metric.score
+
+        @pytest.mark.asyncio
+        async def test_non_native_model_empty_confusion_matrix_triggers_error(
+            self,
+            mock_non_native_model: Mock,
+            test_case,
+            caplog: pytest.LogCaptureFixture,
+        ):
+            mock_non_native_model.a_generate = AsyncMock(
+                return_value=FactClassificationResult(
+                    classified_facts=ClassifiedFacts()
+                )
+            )
+
+            caplog.set_level(logging.ERROR)
+            metric = FactualCorrectnessMetric(model=mock_non_native_model)
+
+            result = await metric.a_measure(test_case)
+
+            assert mock_non_native_model.a_generate.call_count == 1
+
+            captured_logs = caplog.text
+            assert (
+                "Error: no facts were classified. confusion_matrix is empty for input:"
+                in captured_logs
+            )
+
+            assert math.isnan(result)
 
         @pytest.mark.parametrize(
             "input_TP,input_FP,expected_score",
