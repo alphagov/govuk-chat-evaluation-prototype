@@ -14,9 +14,9 @@ You are going to write a JSON to collect your classified key facts into a JSON o
 Now consider the following python pydantic BaseModel for the JSON schema:
 
 class ClassifiedFacts(BaseModel):
-    TP: list[string]
-    FP: list[string]
-    FN: list[string]
+    TP: list[str]
+    FP: list[str]
+    FN: list[str]
 
 class FactClassificationResult(BaseModel):
    classified_facts: ClassifiedFacts
