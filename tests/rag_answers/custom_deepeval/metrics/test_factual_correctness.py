@@ -1,5 +1,6 @@
 import pytest
 import json
+import logging
 
 from unittest.mock import Mock, AsyncMock, MagicMock, patch
 from deepeval.test_case import LLMTestCase
@@ -13,9 +14,6 @@ from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctne
 from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.schema import (
     ClassifiedFacts,
     FactClassificationResult,
-)
-from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.template import (
-    FactualCorrectnessTemplate,
 )
 
 
@@ -171,7 +169,7 @@ class TestFactualCorrectness:
                             TP=input_TP, FP=input_FP, FN=["fact3"]
                         )
                     ),
-                    expected_score,
+                    0.1,
                 )
             )
 
@@ -366,12 +364,54 @@ class TestFactualCorrectness:
             mock_initialize_model.return_value = (mock_non_native_model, False)
 
             metric = FactualCorrectnessMetric(model=mock_non_native_model)  # type: ignore
-            _ = await metric.a_measure(test_case)
+            result = await metric.a_measure(test_case)
 
             assert isinstance(metric.confusion_matrix, ClassifiedFacts)
             assert (
                 metric.confusion_matrix == fact_classification_result.classified_facts
             )
+            assert isinstance(result, float)
+            assert result == metric.score
+
+        @pytest.mark.parametrize(
+            "input_TP,input_FP,expected_score",
+            [
+                (
+                    ["fact1", "fact2"],
+                    ["fact3"],
+                    2 / 3,
+                ),
+                ([], [], 0.0),
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_non_native_model_return_scores(
+            self,
+            mock_non_native_model: Mock,
+            test_case: LLMTestCase,
+            input_TP: list,
+            input_FP: list,
+            expected_score: float,
+        ):
+            mock_non_native_model.a_generate = AsyncMock(
+                return_value=(
+                    FactClassificationResult(
+                        classified_facts=ClassifiedFacts(
+                            TP=input_TP, FP=input_FP, FN=["fact3"]
+                        )
+                    )
+                )
+            )
+
+            metric = FactualCorrectnessMetric(model=mock_non_native_model)  # type: ignore
+            result = await metric.a_measure(test_case)
+
+            assert round(result, 3) == round(expected_score, 3)
+
+            # assert dependency boundary was called once as expected (with schema)
+            mock_non_native_model.a_generate.assert_awaited_once()
+            _, kwargs = mock_non_native_model.a_generate.call_args
+            assert kwargs.get("schema") == FactClassificationResult
 
         @pytest.mark.asyncio
         @patch(
@@ -392,20 +432,20 @@ class TestFactualCorrectness:
             mock_initialize_model.return_value = (mock_non_native_model, False)
 
             metric = FactualCorrectnessMetric(model=mock_non_native_model)  # type: ignore
-            _ = await metric.a_measure(test_case)
+            result = await metric.a_measure(test_case)
 
             assert metric.evaluation_cost is None
+            assert isinstance(result, float)
+            assert result == metric.score
 
         @pytest.mark.asyncio
         async def test_non_native_model_returns_recoverable_json(
             self, mock_non_native_model: Mock, test_case: LLMTestCase
         ):
             # fallback case: schema call fails, raw JSON string returned
-            fixable_json = (
-                '{"classified_facts": {"TP": ["fact1"], "FP": ["fact2"], "FN": []}}'
-            )
+            fixable_json = 'fixable json {"classified_facts": {"TP": ["fact1"], "FP": ["fact2"], "FN": [], }}'
 
-            # first call raises TypeError, second returns fixable string
+            # first call raises TypeError, second returns string that trimAndLoadJson can fix
             mock_non_native_model.a_generate = AsyncMock(
                 side_effect=[
                     TypeError("schema parse failed"),
@@ -431,19 +471,78 @@ class TestFactualCorrectness:
             assert "schema" not in second_call_args.kwargs
 
         @pytest.mark.asyncio
-        async def test_non_native_model_returns_unparsable_json(
-            self, mock_non_native_model: Mock, test_case: LLMTestCase
+        async def test_non_native_model_unparsable_json_triggers_exception(
+            self,
+            mock_non_native_model: Mock,
+            test_case: LLMTestCase,
+            caplog: pytest.LogCaptureFixture,
         ):
-            mock_non_native_model.a_generate = AsyncMock(
-                side_effect=Exception("unexpected")
+            # unparsable JSON that trimAndLoadJson cannot fix
+            unparsable_json = (
+                '{"classified_facts": {"TP": [fact1"], "FP: ["fact2], "FN": []}'
             )
+
+            # first call raises TypeError to trigger fallback path
+            # second call returns the unparsable JSON
+            mock_non_native_model.a_generate = AsyncMock(
+                side_effect=[
+                    TypeError(
+                        "Schema not supported"
+                    ),  # first call fails with TypeError
+                    unparsable_json,  # second call returns unparsable JSON that will cause ValueError trimAndLoadJson and so Exception in a_generate
+                ]
+            )
+
+            caplog.set_level(logging.ERROR)
             metric = FactualCorrectnessMetric(model=mock_non_native_model)  # type: ignore
+
             _ = await metric.a_measure(test_case=test_case)
 
-            assert isinstance(metric.confusion_matrix, ClassifiedFacts)
+            # a_generate should have been called twice (once with schema, once without)
+            assert mock_non_native_model.a_generate.call_count == 2
 
+            # verify logging.error was called with the expected message
+            captured_logs = caplog.text
+            assert "Failed to parse fallback JSON" in captured_logs
+
+            assert isinstance(metric.confusion_matrix, ClassifiedFacts)
             assert metric.confusion_matrix.TP == []
             assert metric.confusion_matrix.FP == []
+            assert metric.confusion_matrix.FN == []
+
+        @pytest.mark.asyncio
+        async def test_non_native_model_fallback_validation_error_triggers_exception(
+            self,
+            mock_non_native_model: Mock,
+            test_case: LLMTestCase,
+            caplog: pytest.LogCaptureFixture,
+        ):
+            valid_json_wrong_schema = '{"wrong_field": "value"}'
+
+            # first call raises TypeError to trigger fallback path
+            # second call returns the unparsable JSON
+            mock_non_native_model.a_generate = AsyncMock(
+                side_effect=[
+                    TypeError("Schema not supported"),  # First call raises TypeError
+                    valid_json_wrong_schema,  # Second call returns invalid data
+                ]
+            )
+
+            caplog.set_level(logging.ERROR)
+            metric = FactualCorrectnessMetric(model=mock_non_native_model)  # type: ignore
+
+            _ = await metric.a_measure(test_case=test_case)
+
+            assert mock_non_native_model.a_generate.call_count == 2
+
+            # verify logging.error was called with the expected message
+            captured_logs = caplog.text
+            assert "Failed to parse fallback JSON" in captured_logs
+
+            assert isinstance(metric.confusion_matrix, ClassifiedFacts)
+            assert metric.confusion_matrix.TP == []
+            assert metric.confusion_matrix.FP == []
+            assert metric.confusion_matrix.FN == []
 
     def test_measure_raises_not_implemented(
         self, mock_native_model: Mock, test_case: LLMTestCase
