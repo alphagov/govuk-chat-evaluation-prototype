@@ -552,16 +552,36 @@ class TestFactualCorrectness:
         ):
             metric.measure(test_case)
 
-    def test_is_successful(self, mock_native_model: Mock):
-        metric = FactualCorrectnessMetric(
-            model=mock_native_model, threshold=0.7, include_reason=True
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "classified_facts, threshold, expected_success",
+        [
+            (ClassifiedFacts(TP=["fact1"], FP=[], FN=[]), 0.5, True),
+            (ClassifiedFacts(TP=[], FP=[], FN=["fact1"]), 0.5, False),
+            (
+                ClassifiedFacts(TP=["fact1"], FP=["fact2", "fact3"], FN=["fact4"]),
+                0.9,
+                False,
+            ),
+            (ClassifiedFacts(TP=["fact1", "fact2"], FP=[], FN=["fact3"]), 0.3, True),
+        ],
+    )
+    async def test_is_successful(
+        self,
+        mock_native_model: Mock,
+        test_case: LLMTestCase,
+        classified_facts: ClassifiedFacts,
+        threshold: float,
+        expected_success: bool,
+    ):
+        mock_native_model.a_generate = AsyncMock(
+            return_value=(
+                FactClassificationResult(classified_facts=classified_facts),
+                0.1,
+            )
         )
 
-        metric.success = True
-        assert metric.is_successful() is True
+        metric = FactualCorrectnessMetric(model=mock_native_model, threshold=threshold)
+        await metric.a_measure(test_case)
 
-        metric.success = False
-        assert metric.is_successful() is False
-
-        metric.error = "Some error"
-        assert metric.is_successful() is False
+        assert metric.is_successful() is expected_success
