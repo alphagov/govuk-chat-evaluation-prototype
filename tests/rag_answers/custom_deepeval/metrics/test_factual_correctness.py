@@ -98,7 +98,7 @@ class TestFactualCorrectness:
 
             metric = FactualCorrectnessMetric(model=mock_native_model)
 
-            # since we patched metric_progress_indicator, it shuold call the mocked context manager mock_progress_indicator
+            # since we patched metric_progress_indicator, it should call the mocked context manager mock_progress_indicator
             await metric.a_measure(test_case, _show_indicator=set_show_progress)
 
             # test it actually called the mock
