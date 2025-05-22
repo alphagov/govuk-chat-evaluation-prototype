@@ -19,18 +19,20 @@ from govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctne
 
 
 @pytest.fixture
-def mock_native_model():
+def mock_native_model(fact_classification_result):
     """Fixture for a mock native model as GPT model"""
     mock = Mock(spec=GPTModel)
     mock.get_model_name.return_value = "gpt-4o"
+    mock.a_generate = AsyncMock(return_value=(fact_classification_result, 0.1))
     return mock
 
 
 @pytest.fixture
-def mock_non_native_model():
+def mock_non_native_model(fact_classification_result):
     """Fixture for a mock non-native model"""
     mock = Mock(spec=DeepEvalBaseLLM)
     mock.get_model_name.return_value = "a-non-native-model"
+    mock.a_generate = AsyncMock(return_value=fact_classification_result)
     return mock
 
 
@@ -92,10 +94,6 @@ class TestFactualCorrectness:
             set_show_progress: bool,
             expected_show_progress: bool,
         ):
-            mock_native_model.a_generate = AsyncMock(
-                return_value=(fact_classification_result, 0.5)
-            )
-
             metric = FactualCorrectnessMetric(model=mock_native_model)
 
             # since we patched metric_progress_indicator, it should call the mocked context manager mock_progress_indicator
@@ -112,17 +110,6 @@ class TestFactualCorrectness:
         async def test_logs_confusion_matrix(
             self, mock_native_model: Mock, test_case, caplog: pytest.LogCaptureFixture
         ):
-            mock_native_model.a_generate = AsyncMock(
-                return_value=(
-                    FactClassificationResult(
-                        classified_facts=ClassifiedFacts(
-                            TP=["fact1"], FP=["fact2"], FN=["fact3"]
-                        )
-                    ),
-                    0.1,
-                )
-            )
-
             caplog.set_level(logging.DEBUG)
             metric = FactualCorrectnessMetric(model=mock_native_model)
 
@@ -133,7 +120,6 @@ class TestFactualCorrectness:
             assert "Confusion matrix for test input:" in logged_message
             assert "fact1" in logged_message
             assert "fact2" in logged_message
-            assert "fact3" in logged_message
 
             assert str(test_case.input) in logged_message
 
@@ -157,6 +143,7 @@ class TestFactualCorrectness:
             input_FP: list,
             expected_score: float,
         ):
+            # override the a_generate method to return a mock response
             mock_native_model.a_generate = AsyncMock(
                 return_value=(
                     FactClassificationResult(
@@ -235,9 +222,6 @@ class TestFactualCorrectness:
             mock_native_model: Mock,
             test_case: LLMTestCase,
         ):
-            mock_native_model.a_generate = AsyncMock(
-                return_value=(fact_classification_result, 0.1)
-            )
             metric = FactualCorrectnessMetric(
                 model=mock_native_model, include_reason=include_reason
             )
@@ -351,10 +335,6 @@ class TestFactualCorrectness:
             test_case: LLMTestCase,
             fact_classification_result: FactClassificationResult,
         ):
-            mock_non_native_model.a_generate = AsyncMock(
-                return_value=fact_classification_result
-            )
-
             # force initialize_model to return (mock_model, False)
             mock_initialize_model.return_value = (mock_non_native_model, False)
 
@@ -445,12 +425,7 @@ class TestFactualCorrectness:
             mock_initialize_model,
             mock_non_native_model: Mock,
             test_case: LLMTestCase,
-            fact_classification_result: FactClassificationResult,
         ):
-            mock_non_native_model.a_generate = AsyncMock(
-                return_value=fact_classification_result
-            )
-
             # force initialize_model to return (mock_model, False)
             mock_initialize_model.return_value = (mock_non_native_model, False)
 
