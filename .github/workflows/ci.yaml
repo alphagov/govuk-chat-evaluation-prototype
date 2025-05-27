@@ -24,8 +24,13 @@ jobs:
         with:
           python-version-file: ".python-version"
 
-      - name: Run tests
+      - name: Run regular tests
         run: uv run pytest tests
+
+      - name: Run real_openai tests
+        run: uv run pytest -m 'real_openai' tests
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   lint:
     name: Lint
