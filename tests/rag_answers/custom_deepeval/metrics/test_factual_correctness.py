@@ -417,18 +417,11 @@ class TestFactualCorrectness:
             assert kwargs.get("schema") == FactClassificationResult
 
         @pytest.mark.asyncio
-        @patch(
-            "govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness.initialize_model"
-        )
         async def test_non_native_model_does_not_set_evaluation_costs(
             self,
-            mock_initialize_model,
             mock_non_native_model: Mock,
             test_case: LLMTestCase,
         ):
-            # force initialize_model to return (mock_model, False)
-            mock_initialize_model.return_value = (mock_non_native_model, False)
-
             metric = FactualCorrectnessMetric(model=mock_non_native_model)  # type: ignore
             result = await metric.a_measure(test_case)
 
