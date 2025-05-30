@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from deepeval import evaluate as deepeval_evaluate
-from deepeval.metrics import BaseMetric
+from deepeval.metrics.base_metric import BaseMetric
 from deepeval.evaluate.configs import (
     AsyncConfig,
     DisplayConfig,
