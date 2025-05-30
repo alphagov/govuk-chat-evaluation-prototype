@@ -20,6 +20,8 @@ Run `uv sync` to install dependencies.
 
 Evaluation tasks that generate responses from GOV.UK Chat require the application to be available in your `~/govuk` directory.
 
+The means to access input data is documented in [data/README.md](data/README.md).
+
 ### Usage
 
 Run `uv run govuk_chat_evaluation` to view available evaluation tasks and options.
