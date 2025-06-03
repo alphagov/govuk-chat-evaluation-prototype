@@ -17,10 +17,11 @@ wheels/
 
 # Private data
 /data/*
-!/data/.keep
+!/data/README.md
 /results/*
-!/results/.keep
+!/results/README.md
 
 # configs
 /config/*
+!/config/README.md
 !/config/defaults
