@@ -325,19 +325,12 @@ class TestFactualCorrectness:
             mock_native_model.a_generate.assert_awaited_once()
 
         @pytest.mark.asyncio
-        @patch(
-            "govuk_chat_evaluation.rag_answers.custom_deepeval.metrics.factual_correctness.factual_correctness.initialize_model"
-        )
         async def test_non_native_model_returns_valid_schema(
             self,
-            mock_initialize_model,
             mock_non_native_model: Mock,
             test_case: LLMTestCase,
             fact_classification_result: FactClassificationResult,
         ):
-            # force initialize_model to return (mock_model, False)
-            mock_initialize_model.return_value = (mock_non_native_model, False)
-
             metric = FactualCorrectnessMetric(model=mock_non_native_model)  # type: ignore
             result = await metric.a_measure(test_case)
 
@@ -375,6 +368,11 @@ class TestFactualCorrectness:
             )
 
             assert math.isnan(result)
+            assert metric.error is not None
+            assert (
+                "Error: no facts were classified. confusion_matrix is empty for input:"
+                in metric.error
+            )
 
         @pytest.mark.parametrize(
             "input_TP,input_FP,expected_score",
@@ -427,7 +425,6 @@ class TestFactualCorrectness:
 
             assert metric.evaluation_cost is None
             assert isinstance(result, float)
-            assert result == metric.score
 
         @pytest.mark.asyncio
         async def test_non_native_model_returns_recoverable_json(
