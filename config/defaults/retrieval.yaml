@@ -1,0 +1,4 @@
+what: Evaluating retrieval
+generate: true
+provider: openai
+input_path: data/retrieval.jsonl

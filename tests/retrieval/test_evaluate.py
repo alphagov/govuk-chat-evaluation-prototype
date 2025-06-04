@@ -1,0 +1,212 @@
+import csv
+import json
+import re
+import logging
+import numpy as np
+import pytest
+
+from govuk_chat_evaluation.retrieval.evaluate import (
+    AggregateResults,
+    EvaluationResult,
+    evaluate_and_output_results,
+)
+
+
+class TestEvaluationResult:
+    def test_for_csv(self):
+        result = EvaluationResult(
+            question="Test question",
+            expected_exact_paths=["/path1", "/path2"],
+            actual_exact_paths=["/path1", "/path3"],
+        )
+
+        assert result.for_csv() == {
+            "question": "Test question",
+            "expected_exact_paths": ["/path1", "/path2"],
+            "actual_exact_paths": ["/path1", "/path3"],
+        }
+
+
+class TestAggregateResults:
+    @pytest.fixture
+    def sample_results(self) -> list[EvaluationResult]:
+        return [
+            EvaluationResult(
+                question="Q1",
+                expected_exact_paths=["/path1", "/path2"],
+                actual_exact_paths=["/path1", "/path2"],
+            ),
+            EvaluationResult(
+                question="Q2",
+                expected_exact_paths=["/path1"],
+                actual_exact_paths=["/path3"],
+            ),
+            EvaluationResult(
+                question="Q3",
+                expected_exact_paths=["/path1", "/path2"],
+                actual_exact_paths=["/path1"],
+            ),
+            EvaluationResult(
+                question="Q4",
+                expected_exact_paths=["/path1"],
+                actual_exact_paths=[],
+            ),
+            EvaluationResult(
+                question="Q5",
+                expected_exact_paths=["/path1", "/path2"],
+                actual_exact_paths=["/path1", "/path2", "path3"],
+            ),
+        ]
+
+    def test_precision_value(self, sample_results):
+        aggregate = AggregateResults(sample_results)
+        assert round(aggregate.precision(), 2) == 0.29
+
+    def test_precision_value_nan(self):
+        results = [
+            EvaluationResult(
+                question="Q1",
+                expected_exact_paths=["/path1"],
+                actual_exact_paths=[],
+            ),
+        ]
+        aggregate = AggregateResults(results)
+        assert np.isnan(aggregate.precision())
+
+    def test_recall_value(self, sample_results):
+        aggregate = AggregateResults(sample_results)
+        assert aggregate.recall() == 0.25
+
+    def test_recall_value_nan(self):
+        results = [
+            EvaluationResult(
+                question="Q1",
+                expected_exact_paths=[],
+                actual_exact_paths=["/path1"],
+            ),
+        ]
+        aggregate = AggregateResults(results)
+        assert np.isnan(aggregate.recall())
+
+    def test_f1_value(self, sample_results):
+        aggregate = AggregateResults(sample_results)
+        assert aggregate.f1_score() == 0.5
+
+    def test_f1_value_nan(self):
+        results = [
+            EvaluationResult(
+                question="Q1",
+                expected_exact_paths=[],
+                actual_exact_paths=[],
+            ),
+        ]
+        aggregate = AggregateResults(results)
+        assert np.isnan(aggregate.f1_score())
+
+    def test_f2_value(self, sample_results):
+        aggregate = AggregateResults(sample_results)
+        assert aggregate.f2_score() == 0.5
+
+    def test_f2_value_nan(self):
+        results = [
+            EvaluationResult(
+                question="Q1",
+                expected_exact_paths=[],
+                actual_exact_paths=[],
+            ),
+        ]
+        aggregate = AggregateResults(results)
+        assert np.isnan(aggregate.f2_score())
+
+    def test_to_dict(self, sample_results):
+        aggregate = AggregateResults(sample_results)
+        assert aggregate.to_dict() == {
+            "Evaluated": len(sample_results),
+            "Precision": aggregate.precision(),
+            "Recall": aggregate.recall(),
+            "F1 Score": aggregate.f1_score(),
+            "F2 Score": aggregate.f2_score(),
+        }
+
+    def test_for_csv(self, sample_results):
+        aggregate = AggregateResults(sample_results)
+        expected_csv = [
+            {"property": k, "value": v} for k, v in aggregate.to_dict().items()
+        ]
+        assert aggregate.for_csv() == expected_csv
+
+
+@pytest.fixture
+def mock_evaluation_data_file(tmp_path):
+    file_path = tmp_path / "evaluation_data.jsonl"
+    data = [
+        {
+            "question": "Question 1",
+            "expected_exact_paths": ["/path1", "/path2"],
+            "actual_exact_paths": ["/path1", "/path2"],
+        },
+        {
+            "question": "Question 2",
+            "expected_exact_paths": ["/path1"],
+            "actual_exact_paths": ["/path3"],
+        },
+    ]
+
+    with open(tmp_path / "evaluation_data.jsonl", "w", encoding="utf8") as file:
+        for item in data:
+            file.write(json.dumps(item) + "\n")
+
+    return file_path
+
+
+def test_evaluate_and_output_results_writes_results(
+    mock_project_root, mock_evaluation_data_file
+):
+    evaluate_and_output_results(mock_project_root, mock_evaluation_data_file)
+    results_file = mock_project_root / "results.csv"
+
+    assert results_file.exists()
+
+    with open(results_file, "r") as file:
+        reader = csv.reader(file)
+        headers = next(reader, None)
+
+        assert headers is not None
+        assert "question" in headers
+
+
+def test_evaluate_and_output_results_writes_aggregates(
+    mock_project_root, mock_evaluation_data_file
+):
+    evaluate_and_output_results(mock_project_root, mock_evaluation_data_file)
+    aggregates_file = mock_project_root / "aggregate.csv"
+
+    assert aggregates_file.exists()
+    with open(aggregates_file, "r") as file:
+        reader = csv.reader(file)
+        headers = next(reader, None)
+
+        assert headers is not None
+        assert "property" in headers
+
+
+def test_evaluate_and_output_results_prints_aggregates(
+    mock_project_root, mock_evaluation_data_file, caplog
+):
+    caplog.set_level(logging.INFO)
+    evaluate_and_output_results(mock_project_root, mock_evaluation_data_file)
+
+    assert "Aggregate Results" in caplog.text
+    assert re.search(r"Evaluated\s+\d+", caplog.text)
+
+
+def test_evaluate_and_output_results_copes_with_empty_data(
+    mock_project_root, tmp_path, caplog
+):
+    caplog.set_level(logging.ERROR)
+    file_path = tmp_path / "evaluation_data.jsonl"
+    file_path.touch()
+
+    evaluate_and_output_results(mock_project_root, file_path)
+
+    assert "There is no data to evaluate" in caplog.text
