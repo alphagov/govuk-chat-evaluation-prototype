@@ -47,3 +47,7 @@ packages = ["govuk_chat_evaluation"]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
+markers = [
+  "real_openai: run the tests that test against a real OpenAI API"
+]
+addopts = "-m 'not real_openai'"

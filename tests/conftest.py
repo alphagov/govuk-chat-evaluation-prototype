@@ -1,11 +1,16 @@
 import csv
+import os
 from pathlib import Path
 from inspect import signature
 from typing import Callable
+from dotenv import load_dotenv
 from unittest.mock import MagicMock
 
 import pytest
 from typeguard import check_type, TypeCheckError
+
+
+load_dotenv()
 
 
 @pytest.fixture
@@ -18,9 +23,15 @@ def mock_project_root(mocker, tmp_path):
 
 
 @pytest.fixture(autouse=True)
-def mock_openai_key(monkeypatch):
-    # Set a fake API key
-    monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key-for-testing")
+def mock_or_use_openai_api_key(request, monkeypatch):
+    if request.node.get_closest_marker(
+        "real_openai"
+    ):  # checks if the current test (or its containing class/module) is marked with real_openai
+        if not os.getenv("OPENAI_API_KEY"):
+            raise RuntimeError("OPENAI_API_KEY must be defined for real OpenAI tests.")
+    else:
+        # set a fake API key but only when not running real OpenAI tests
+        monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key-for-testing")
 
 
 def assert_csv_exists_with_headers(file_path: Path, *expected_headers: str):
