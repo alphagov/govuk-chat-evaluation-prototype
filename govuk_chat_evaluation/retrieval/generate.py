@@ -34,12 +34,14 @@ def generate_inputs_to_evaluation_results(
             "evaluation:search_results_for_question",
             env,
         )
-        exact_paths = [item["exact_path"] for item in result]
+        exact_paths_and_scores = [
+            (item["exact_path"], item["weighted_score"]) for item in result
+        ]
 
         return EvaluationResult(
             question=input.question,
             expected_exact_paths=input.expected_exact_paths,
-            actual_exact_paths=exact_paths,
+            actual_exact_paths_and_scores=exact_paths_and_scores,
         )
 
     return asyncio.run(

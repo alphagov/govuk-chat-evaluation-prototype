@@ -16,14 +16,34 @@ def run_rake_task_mock(mocker):
     async def default_side_effect(_, env):
         if env["INPUT"] == "Question 1":
             return [
-                {"exact_path": "/foo", "plain_content": "Content for foo"},
-                {"exact_path": "/bar", "plain_content": "Content for bar"},
-                {"exact_path": "/baz", "plain_content": "Content for baz"},
+                {
+                    "exact_path": "/foo",
+                    "plain_content": "Content for foo",
+                    "weighted_score": 1.0,
+                },
+                {
+                    "exact_path": "/bar",
+                    "plain_content": "Content for bar",
+                    "weighted_score": 0.8,
+                },
+                {
+                    "exact_path": "/baz",
+                    "plain_content": "Content for baz",
+                    "weighted_score": 0.5,
+                },
             ]
         else:
             return [
-                {"exact_path": "/path1", "plain_content": "Content for path1"},
-                {"exact_path": "/path2", "plain_content": "Content for path2"},
+                {
+                    "exact_path": "/path1",
+                    "plain_content": "Content for path1",
+                    "weighted_score": 1.0,
+                },
+                {
+                    "exact_path": "/path2",
+                    "plain_content": "Content for path2",
+                    "weighted_score": 0.9,
+                },
             ]
 
     mock = mocker.patch(
@@ -51,12 +71,12 @@ def test_generate_inputs_to_evaluation_results_returns_evaluation_results(
         EvaluationResult(
             question="Question 1",
             expected_exact_paths=["/foo"],
-            actual_exact_paths=["/foo", "/bar", "/baz"],
+            actual_exact_paths_and_scores=[("/foo", 1.0), ("/bar", 0.8), ("/baz", 0.5)],
         ),
         EvaluationResult(
             question="Question 2",
             expected_exact_paths=["/path1", "/path2"],
-            actual_exact_paths=["/path1", "/path2"],
+            actual_exact_paths_and_scores=[("/path1", 1.0), ("/path2", 0.9)],
         ),
     ]
     actual_results = generate_inputs_to_evaluation_results("titan", generate_inputs)

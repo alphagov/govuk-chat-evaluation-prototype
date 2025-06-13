@@ -9,17 +9,17 @@ def mock_input_data(mock_project_root):
         {
             "question": "Question 1",
             "expected_exact_paths": ["/foo", "/bar"],
-            "actual_exact_paths": ["/foo", "/bar"],
+            "actual_exact_paths_and_scores": [("/foo", 0.9), ("/bar", 0.8)],
         },
         {
             "question": "Question 2",
             "expected_exact_paths": ["/foo"],
-            "actual_exact_paths": ["/bar"],
+            "actual_exact_paths_and_scores": [("/bar", 0.9)],
         },
         {
             "question": "Question 3",
             "expected_exact_paths": ["/foo"],
-            "actual_exact_paths": [],
+            "actual_exact_paths_and_scores": [],
         },
     ]
 

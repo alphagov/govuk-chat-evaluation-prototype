@@ -21,7 +21,11 @@ DECIMAL_PLACES = 4
 class EvaluationResult(BaseModel):
     question: str
     expected_exact_paths: list[str]
-    actual_exact_paths: list[str]
+    actual_exact_paths_and_scores: list[tuple[str, float]]
+
+    @property
+    def actual_exact_paths(self) -> list[str]:
+        return [path for path, _ in self.actual_exact_paths_and_scores]
 
     @property
     def all_paths(self) -> list[str]:
@@ -68,7 +72,7 @@ class EvaluationResult(BaseModel):
         return {
             "question": self.question,
             "expected_exact_paths": self.expected_exact_paths,
-            "actual_exact_paths": self.actual_exact_paths,
+            "actual_exact_paths_and_scores": self.actual_exact_paths_and_scores,
             "precision": round(self.precision(), DECIMAL_PLACES),
             "recall": round(self.recall(), DECIMAL_PLACES),
             "f1_score": round(self.f1_score(), DECIMAL_PLACES),
