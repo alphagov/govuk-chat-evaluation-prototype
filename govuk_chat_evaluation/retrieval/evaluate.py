@@ -39,6 +39,30 @@ class EvaluationResult(BaseModel):
     def y_pred(self) -> list[int]:
         return [int(path in self.actual_exact_paths) for path in self.all_paths]
 
+    @property
+    def false_positive_cases(self) -> list[dict[str, float]]:
+        return [
+            {path: score}
+            for path, score in self.actual_exact_paths_and_scores
+            if path not in self.expected_exact_paths
+        ]
+
+    @property
+    def false_negative_cases(self) -> list[dict[str, float]]:
+        return [
+            {path: float("nan")}
+            for path in self.expected_exact_paths
+            if path not in self.actual_exact_paths
+        ]
+
+    @property
+    def true_positive_cases(self) -> list[str]:
+        return [
+            path
+            for path in self.expected_exact_paths
+            if path in self.actual_exact_paths
+        ]
+
     def precision(self) -> float:
         return precision_score(
             self.y_true,
@@ -77,6 +101,9 @@ class EvaluationResult(BaseModel):
             "recall": round(self.recall(), DECIMAL_PLACES),
             "f1_score": round(self.f1_score(), DECIMAL_PLACES),
             "f2_score": round(self.f2_score(), DECIMAL_PLACES),
+            "true_positives": self.true_positive_cases,
+            "false_negatives": self.false_negative_cases,
+            "false_positives": self.false_positive_cases,
         }
 
 

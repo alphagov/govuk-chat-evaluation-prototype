@@ -20,15 +20,25 @@ class TestEvaluationResult:
             actual_exact_paths_and_scores=[("/path1", 0.9)],
         )
 
-        assert result.for_csv() == {
-            "question": "Test question",
-            "expected_exact_paths": ["/path1", "/path2", "/path3", "/path4"],
-            "actual_exact_paths_and_scores": [("/path1", 0.9)],
-            "precision": 1.0,
-            "recall": 0.25,
-            "f1_score": 0.4,
-            "f2_score": 0.2941,
-        }
+        np.testing.assert_equal(
+            result.for_csv(),
+            {
+                "question": "Test question",
+                "expected_exact_paths": ["/path1", "/path2", "/path3", "/path4"],
+                "actual_exact_paths_and_scores": [("/path1", 0.9)],
+                "precision": 1.0,
+                "recall": 0.25,
+                "f1_score": 0.4,
+                "f2_score": 0.2941,
+                "true_positives": ["/path1"],
+                "false_negatives": [
+                    {"/path2": float("nan")},
+                    {"/path3": float("nan")},
+                    {"/path4": float("nan")},
+                ],
+                "false_positives": [],
+            },
+        )
 
     def test_recall(self):
         result = EvaluationResult(
@@ -110,6 +120,33 @@ class TestEvaluationResult:
         )
 
         assert np.isnan(result.f2_score())
+
+    def test_false_positives(self):
+        result = EvaluationResult(
+            question="Test question",
+            expected_exact_paths=["/path1", "/path2"],
+            actual_exact_paths_and_scores=[("/path1", 0.9), ("/path3", 0.8)],
+        )
+
+        assert result.false_positive_cases == [{"/path3": 0.8}]
+
+    def test_false_negatives(self):
+        result = EvaluationResult(
+            question="Test question",
+            expected_exact_paths=["/path1", "/path2"],
+            actual_exact_paths_and_scores=[("/path1", 0.9), ("/path3", 0.8)],
+        )
+
+        np.testing.assert_equal(result.false_negative_cases, [{"/path2": float("nan")}])
+
+    def test_true_positives(self):
+        result = EvaluationResult(
+            question="Test question",
+            expected_exact_paths=["/path1", "/path2"],
+            actual_exact_paths_and_scores=[("/path1", 0.9), ("/path3", 0.8)],
+        )
+
+        assert result.true_positive_cases == ["/path1"]
 
 
 class TestAggregateResults:
